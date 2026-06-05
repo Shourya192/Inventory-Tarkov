@@ -61,10 +61,10 @@ public class C2SRigSlotPacket {
             if (!taken.isEmpty()) {
                 // Re-set rig in its parent slot so Forge/Curios detect the NBT change and sync
                 if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-                    CuriosCompat.setSlot(player, "body", 0, rig);
-                } else {
-                    player.setItemSlot(EquipmentSlot.CHEST, rig);
-                }
+    CuriosCompat.setSlot(player, "body", 0, rig.copy());
+} else {
+    player.setItemSlot(EquipmentSlot.CHEST, rig.copy());
+}
 
                 // Give item to player inventory or drop at feet
                 if (!player.getInventory().add(taken)) {
