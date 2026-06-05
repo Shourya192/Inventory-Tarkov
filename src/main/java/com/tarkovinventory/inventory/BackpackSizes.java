@@ -70,6 +70,26 @@ public final class BackpackSizes {
         return getSize(stack)[1];
     }
 
+    /**
+     * Returns true if this item has an explicit entry in the registry.
+     * A false result means it will use the default 6×6 size.
+     */
+    public static boolean isRegistered(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        var key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null && REGISTRY.containsKey(key.toString());
+    }
+
+    /**
+     * Returns the item's registry ID string, or "unknown" if not found.
+     * Useful for debugging / the gridinfo command.
+     */
+    public static String getItemId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return "(empty)";
+        var key = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null ? key.toString() : "unknown";
+    }
+
     private static int[] getSize(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return new int[]{DEFAULT_COLS, DEFAULT_ROWS};
         var key = ForgeRegistries.ITEMS.getKey(stack.getItem());
