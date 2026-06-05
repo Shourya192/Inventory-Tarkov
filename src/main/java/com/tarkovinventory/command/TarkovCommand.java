@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.tarkovinventory.capability.IPlayerEquipment;
 import com.tarkovinventory.capability.ModCapabilities;
+import com.tarkovinventory.compat.CuriosCompat;
 import com.tarkovinventory.container.TarkovInventoryMenu;
 import com.tarkovinventory.inventory.BackpackSizes;
 import com.tarkovinventory.inventory.GridInventory;
@@ -18,12 +19,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 
-import java.lang.reflect.Method;
-import java.util.Map;
-import java.util.Optional;
+import java.util.List;
 
 public final class TarkovCommand {
 
@@ -92,71 +90,52 @@ public final class TarkovCommand {
 
     /**
      * Prints every Curios slot ID and its current item to the player's chat.
-     * Use this to find out what slot IDs your mods register.
+     * Uses CuriosCompat which handles all known API versions automatically.
      */
     private static int printCuriosInfo(CommandSourceStack source) {
         try {
             ServerPlayer player = source.getPlayerOrException();
 
-            // Check Curios is loaded
-            if (!net.minecraftforge.fml.ModList.get().isLoaded("curios")) {
+            if (!CuriosCompat.isLoaded()) {
                 player.displayClientMessage(
                     Component.literal("§cCurios API is not loaded."), false);
                 return 1;
             }
 
-            // Use reflection (same pattern as CuriosCompat) to enumerate slots server-side
-            Class<?> apiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
-            Method helperMethod = apiClass.getMethod("getCuriosHelper");
-            Object helper = helperMethod.invoke(null);
-            Method handlerMethod = helper.getClass().getMethod("getCuriosHandler", Player.class);
-            Optional<?> optHandler = (Optional<?>) handlerMethod.invoke(helper, player);
+            List<CuriosCompat.CuriosSlotEntry> slots = CuriosCompat.getEquippedSlots(player);
 
-            if (!optHandler.isPresent()) {
-                player.displayClientMessage(
-                    Component.literal("§eNo Curios handler found for your player."), false);
-                return 1;
-            }
-
-            Object handler = optHandler.get();
-            Method getCurios = handler.getClass().getMethod("getCurios");
-            Map<?, ?> curios = (Map<?, ?>) getCurios.invoke(handler);
-
-            if (curios.isEmpty()) {
-                player.displayClientMessage(
-                    Component.literal("§eNo Curios slots found. Make sure mods that add Curios slots are installed."), false);
+            if (slots.isEmpty()) {
+                // Could be empty because no handler or genuinely no slots
+                Object handler = CuriosCompat.getHandler(player);
+                if (handler == null) {
+                    player.displayClientMessage(
+                        Component.literal("§cCould not connect to Curios API. Version may be unsupported."), false);
+                } else {
+                    player.displayClientMessage(
+                        Component.literal("§eNo Curios slots found. Install a mod that adds Curios slots."), false);
+                }
                 return 1;
             }
 
             player.displayClientMessage(
                 Component.literal("§6=== Curios Slot IDs ==="), false);
 
-            for (Map.Entry<?, ?> entry : curios.entrySet()) {
-                String slotId = entry.getKey().toString();
-                Object stacksHandler = entry.getValue();
-                Method getStacks = stacksHandler.getClass().getMethod("getStacks");
-                Object stacks = getStacks.invoke(stacksHandler);
-                Method getSlots = stacks.getClass().getMethod("getSlots");
-                int slotCount = (int) getSlots.invoke(stacks);
-                Method getStack = stacks.getClass().getMethod("getStackInSlot", int.class);
-
-                for (int i = 0; i < slotCount; i++) {
-                    ItemStack stack = (ItemStack) getStack.invoke(stacks, i);
-                    String itemName = stack.isEmpty() ? "§8(empty)" : "§a" + stack.getHoverName().getString();
-                    player.displayClientMessage(
-                        Component.literal("§e\"" + slotId + "\"§7 [" + i + "] → " + itemName),
-                        false
-                    );
-                }
+            for (CuriosCompat.CuriosSlotEntry entry : slots) {
+                String itemName = entry.stack().isEmpty()
+                    ? "§8(empty)"
+                    : "§a" + entry.stack().getHoverName().getString();
+                player.displayClientMessage(
+                    Component.literal("§e\"" + entry.slotId() + "\"§7 [" + entry.index() + "] → " + itemName),
+                    false);
             }
 
             player.displayClientMessage(
-                Component.literal("§7Use these IDs to map your Curios slots."), false);
+                Component.literal("§7Use these slot IDs to map your Curios slots in CuriosCompat.java."), false);
 
         } catch (Exception e) {
             try {
                 source.getPlayerOrException().displayClientMessage(
-                    Component.literal("§cError reading Curios slots: " + e.getClass().getSimpleName()), false);
+                    Component.literal("§cError: " + e.getClass().getSimpleName() + ": " + e.getMessage()), false);
             } catch (Exception ignored) {}
         }
         return 1;
@@ -259,32 +238,15 @@ public final class TarkovCommand {
     }
 
     /**
-     * Returns the item in the player's ON BACK slot (Curios 'back' index 0,
-     * or capability SLOT_ON_BACK as fallback).
+     * Returns the item in the player's ON BACK slot.
+     * Checks Curios 'back' slot first (via CuriosCompat, which handles all
+     * known API versions), then falls back to the capability SLOT_ON_BACK.
      */
     private static ItemStack getBackSlotItem(ServerPlayer player) {
-        // Try Curios 'back' slot first
-        try {
-            if (net.minecraftforge.fml.ModList.get().isLoaded("curios")) {
-                Class<?> apiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
-                Object helper = apiClass.getMethod("getCuriosHelper").invoke(null);
-                Optional<?> optHandler = (Optional<?>) helper.getClass()
-                    .getMethod("getCuriosHandler", Player.class).invoke(helper, player);
-                if (optHandler.isPresent()) {
-                    Object handler = optHandler.get();
-                    Map<?, ?> curios = (Map<?, ?>) handler.getClass().getMethod("getCurios").invoke(handler);
-                    for (Map.Entry<?, ?> e : curios.entrySet()) {
-                        if (!"back".equals(e.getKey().toString())) continue;
-                        Object stacks = e.getValue().getClass().getMethod("getStacks").invoke(e.getValue());
-                        ItemStack s = (ItemStack) stacks.getClass()
-                            .getMethod("getStackInSlot", int.class).invoke(stacks, 0);
-                        if (!s.isEmpty()) return s;
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // Fallback: capability SLOT_ON_BACK
+        if (CuriosCompat.isLoaded()) {
+            ItemStack s = CuriosCompat.getSlotItem(player, "back", 0);
+            if (!s.isEmpty()) return s;
+        }
         return ModCapabilities.get(player)
             .map(cap -> cap.getSlot(IPlayerEquipment.SLOT_ON_BACK))
             .orElse(ItemStack.EMPTY);
