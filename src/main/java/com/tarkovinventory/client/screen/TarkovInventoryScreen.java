@@ -298,7 +298,13 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     }
 
     private void renderBackpackSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
+        // Check if holding a Tactical Backpack item — show status next to label
+        boolean hasBackpack = minecraft.player != null &&
+                (minecraft.player.getMainHandItem().getItem() instanceof com.tarkovinventory.item.TarkovBackpackItem ||
+                 minecraft.player.getOffhandItem().getItem() instanceof com.tarkovinventory.item.TarkovBackpackItem);
         gfx.drawString(font, "BACKPACK", ox, oy, C_TEXT_TITLE, false);
+        gfx.drawString(font, hasBackpack ? "§a[equipped]" : "§7[no item needed — storage is always yours]",
+                ox + font.width("BACKPACK") + 4, oy, 0xFFAAAAAA, false);
 
         // Search bar
         int sbX = ox + font.width("BACKPACK") + 6;
