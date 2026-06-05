@@ -639,6 +639,17 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         IItemHandler handler = getRigItemHandler();
         if (handler == null || rigHoveredSlot >= handler.getSlots()) return false;
         if (handler.getStackInSlot(rigHoveredSlot).isEmpty()) return true; // consumed, no-op
+
+        // Optimistic client-side update: immediately clear the slot in the
+        // client's copy of the rig NBT so the slot renders empty on the very
+        // next frame, without waiting for the server's Curios sync (~1 tick).
+        // The server confirms and actually moves the item; Curios then re-syncs
+        // the (already-correct) rig to the client a moment later.
+        ItemStack clientRig = getEquippedRigItem();
+        if (!clientRig.isEmpty()) {
+            com.tarkovinventory.compat.BackpackCompat.extractFromRig(clientRig, rigHoveredSlot);
+        }
+
         ModNetwork.CHANNEL.sendToServer(
                 new C2SRigSlotPacket(rigHoveredSlot, rigHoveredSource));
         return true;
