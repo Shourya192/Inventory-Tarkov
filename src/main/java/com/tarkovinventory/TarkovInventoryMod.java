@@ -2,6 +2,7 @@ package com.tarkovinventory;
 
 import com.tarkovinventory.capability.ModCapabilities;
 import com.tarkovinventory.compat.TaczCompat;
+import com.tarkovinventory.network.ModNetwork;
 import com.tarkovinventory.registry.ModItems;
 import com.tarkovinventory.registry.ModMenuTypes;
 import net.minecraftforge.common.MinecraftForge;
@@ -32,6 +33,7 @@ public class TarkovInventoryMod {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
+            ModNetwork.register();
             TaczCompat.registerSizes();
         });
     }
