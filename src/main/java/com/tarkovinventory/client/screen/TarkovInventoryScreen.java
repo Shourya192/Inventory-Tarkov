@@ -206,11 +206,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         gfx.fill(ox, oy, ox + CHAR_PANEL_W, oy + CHAR_PANEL_H, C_BG_PANEL);
         drawBorder(gfx, ox, oy, CHAR_PANEL_W, CHAR_PANEL_H, C_BORDER);
 
-        // Subtle silhouette lines
-        int cx = ox + CHAR_PANEL_W / 2;
-        for (int i = -1; i <= 1; i++)
-            gfx.fill(cx + i * 20, oy + 20, cx + i * 20 + 1, oy + CHAR_PANEL_H - 60, 0x08FFFFFF);
-
         Player player = minecraft.player;
         for (int i = 0; i < eqSlots.size(); i++)
             renderEquipmentSlot(gfx, i, player, mx, my);
@@ -402,11 +397,17 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         drawBorder(gfx, ox - 2, oy - 2, TOTAL_W - PAD * 2 + 4, PLAYER_INV_H + 4, C_BORDER);
 
         Inventory inv = minecraft.player.getInventory();
+        int gridW = 9 * 18, gridH = 3 * 18;
+
+        // Main inv — one background fill + grid lines instead of 27 × drawSlotBg
+        gfx.fill(ox, oy, ox + gridW, oy + gridH, 0xFF2A2A2A);
+        for (int col = 1; col < 9; col++) gfx.fill(ox + col * 18, oy, ox + col * 18 + 1, oy + gridH, C_SLOT_BORDER);
+        for (int row = 1; row < 3; row++) gfx.fill(ox, oy + row * 18, ox + gridW, oy + row * 18 + 1, C_SLOT_BORDER);
+        drawBorder(gfx, ox, oy, gridW, gridH, C_SLOT_BORDER);
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 int sx = ox + col * 18, sy = oy + row * 18;
-                drawSlotBg(gfx, sx, sy);
                 ItemStack s = inv.getItem(col + row * 9 + 9);
                 if (!s.isEmpty()) { gfx.renderItem(s, sx + 1, sy + 1); gfx.renderItemDecorations(font, s, sx + 1, sy + 1); }
                 if (mx >= sx && mx < sx + 18 && my >= sy && my < sy + 18)
@@ -414,12 +415,17 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             }
         }
 
-        int sepY = oy + 3 * 18 + 3;
-        gfx.fill(ox, sepY, ox + 9 * 18, sepY + 1, C_HOTBAR_SEP);
+        int sepY = oy + gridH + 3;
+        gfx.fill(ox, sepY, ox + gridW, sepY + 1, C_HOTBAR_SEP);
+
+        // Hotbar — one background fill + grid lines
+        int hotbarY = sepY + 2;
+        gfx.fill(ox, hotbarY, ox + gridW, hotbarY + 18, 0xFF2A2A2A);
+        for (int col = 1; col < 9; col++) gfx.fill(ox + col * 18, hotbarY, ox + col * 18 + 1, hotbarY + 18, C_SLOT_BORDER);
+        drawBorder(gfx, ox, hotbarY, gridW, 18, C_SLOT_BORDER);
 
         for (int col = 0; col < 9; col++) {
-            int sx = ox + col * 18, sy = sepY + 2;
-            drawSlotBg(gfx, sx, sy);
+            int sx = ox + col * 18, sy = hotbarY;
             if (col == inv.selected) gfx.fill(sx, sy, sx + 18, sy + 18, 0x40FFFF00);
             ItemStack s = inv.getItem(col);
             if (!s.isEmpty()) { gfx.renderItem(s, sx + 1, sy + 1); gfx.renderItemDecorations(font, s, sx + 1, sy + 1); }
