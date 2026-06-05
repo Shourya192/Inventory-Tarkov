@@ -17,7 +17,7 @@ import org.jetbrains.annotations.NotNull;
  * Menu for the full Tarkov inventory screen.
  *
  * Slot layout:
- *   [0 .. GRID_SLOTS-1]      backpack grid (8×8 = 64)
+ *   [0 .. GRID_SLOTS-1]      backpack grid (max 12×12 = 144 slots; active region is per-backpack)
  *   [GRID_SLOTS .. +26]      player main inventory (3×9 = 27)
  *   [GRID_SLOTS+27 .. +35]   hotbar (9 slots)
  *
