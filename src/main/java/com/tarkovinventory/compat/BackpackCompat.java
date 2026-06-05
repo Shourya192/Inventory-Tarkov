@@ -116,21 +116,32 @@ public final class BackpackCompat {
         if (cap.isPresent()) return cap.orElse(null);
 
         String ns = getNamespace(stack.getItem());
-        CompoundTag tag = stack.getTag();
-        if (tag == null) return null;
 
         // 2. Modern Mayhem: item.tag["inventory"] → ItemStackHandler compound
-        //    (GenericBackpackItem#InitInventory stores it this way)
-        if ("mm".equals(ns) && tag.contains("inventory", 10)) {
-            try {
-                ItemStackHandler h = new ItemStackHandler();
-                h.deserializeNBT(tag.getCompound("inventory"));
-                return h;
-            } catch (Exception ignored) {}
+        //    (GenericBackpackItem#InitInventory stores it this way).
+        //    Checked BEFORE the tag-null guard: a freshly crafted rig has no item
+        //    tag at all, so we must not exit early — we still want to return an
+        //    empty handler sized from BackpackSizes so the rig section renders.
+        if ("mm".equals(ns)) {
+            int slots = com.tarkovinventory.inventory.BackpackSizes.getCols(stack)
+                      * com.tarkovinventory.inventory.BackpackSizes.getRows(stack);
+            if (slots <= 0) slots = 9; // fallback for unregistered MM items
+            CompoundTag tag = stack.getTag();
+            if (tag != null && tag.contains("inventory", 10)) {
+                try {
+                    ItemStackHandler h = new ItemStackHandler(slots);
+                    h.deserializeNBT(tag.getCompound("inventory"));
+                    return h;
+                } catch (Exception ignored) {}
+            }
+            // No NBT yet (fresh rig) — correctly-sized empty handler
+            return new ItemStackHandler(slots);
         }
 
         // 3. Survivor's Arsenal: item.tag["Inventory"] → vanilla ListTag
         //    (BackpackMenu#loadFromNBT reads getList("Inventory", 10))
+        CompoundTag tag = stack.getTag();
+        if (tag == null) return null;
         if ("survivorsarsenal".equals(ns) && tag.contains("Inventory", 9)) {
             int slots = getSaSlotCount(stack);
             return buildSaHandler(tag.getList("Inventory", 10), slots);
