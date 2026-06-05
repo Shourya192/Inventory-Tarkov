@@ -139,6 +139,54 @@ public final class BackpackCompat {
         return null;
     }
 
+    // ── Write operations (server-side) ───────────────────────────────────
+
+    /**
+     * Extracts one full stack from {@code slotIndex} inside a rig/backpack item
+     * and writes the change back to the item's NBT when needed.
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>IItemHandler capability — write-through automatically handled by Forge</li>
+     *   <li>Modern Mayhem NBT path — reads {@code ItemStackHandler}, extracts,
+     *       then serializes the modified handler back into {@code item.tag["inventory"]}</li>
+     * </ol>
+     *
+     * Returns {@link ItemStack#EMPTY} if nothing could be extracted.
+     */
+    public static ItemStack extractFromRig(ItemStack rig, int slotIndex) {
+        if (rig.isEmpty() || slotIndex < 0) return ItemStack.EMPTY;
+
+        // 1. IItemHandler capability (Forge-managed write-through)
+        var cap = rig.getCapability(ForgeCapabilities.ITEM_HANDLER);
+        if (cap.isPresent()) {
+            return cap.map(h -> {
+                if (slotIndex >= h.getSlots()) return ItemStack.EMPTY;
+                return h.extractItem(slotIndex, h.getSlotLimit(slotIndex), false);
+            }).orElse(ItemStack.EMPTY);
+        }
+
+        // 2. Modern Mayhem: deserialize, extract, serialize back
+        if ("mm".equals(getNamespace(rig.getItem()))) {
+            CompoundTag tag = rig.getOrCreateTag();
+            if (tag.contains("inventory", 10)) {
+                try {
+                    ItemStackHandler h = new ItemStackHandler();
+                    h.deserializeNBT(tag.getCompound("inventory"));
+                    if (slotIndex < h.getSlots()) {
+                        ItemStack taken = h.extractItem(slotIndex, h.getSlotLimit(slotIndex), false);
+                        if (!taken.isEmpty()) {
+                            tag.put("inventory", h.serializeNBT()); // write back
+                            return taken;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return ItemStack.EMPTY;
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────
 
     /**
