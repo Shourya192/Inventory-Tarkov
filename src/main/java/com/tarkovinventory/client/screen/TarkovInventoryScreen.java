@@ -306,20 +306,26 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         int oy = panelY() + 14;
 
         // ── Row 1: Head ──────────────────────────────────────────────
-        // EARPIECE: Curios "earwear" (confirmed in-game slot ID)
+        // EARPIECE: Curios "earwear"
         eqSlots.add(new EqSlotDef("EARPIECE",   ox,       oy,       SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_EARPIECE, "earwear",  0));
-        // HEADWEAR: Curios "head" when loaded, vanilla HEAD armor otherwise
-        eqSlots.add(new EqSlotDef("HEADWEAR",   ox + 38,  oy,       SS+8,   SS+8,   EqSource.ARMOR,  0,  "head",     0));
-        // FACE COVER: Curios "facewear" (confirmed in-game slot ID)
+        // HEADWEAR: vanilla HEAD armor only (helmets from mm_armor etc.)
+        // Does NOT map to curios "head" — that slot belongs to BALACLAVA below.
+        eqSlots.add(new EqSlotDef("HEADWEAR",   ox + 38,  oy,       SS+8,   SS+8,   EqSource.ARMOR,  0));
+        // FACE COVER: Curios "facewear" (NVGs, goggles, glasses, visors from MM)
         eqSlots.add(new EqSlotDef("FACE COVER", ox + 90,  oy,       SS,     SS,     EqSource.CAP,    -1, "facewear", 0));
+        // BALACLAVA: Curios "head" (MM balaclava / military_balaclava / GP-5 gas mask)
+        // Separate from HEADWEAR so helmets and balaclavas can coexist in the screen.
+        eqSlots.add(new EqSlotDef("BALACLAVA",  ox + 122, oy,       SS,     SS,     EqSource.ARMOR,  -1, "head",     0));
 
         // ── Row 2: Torso ─────────────────────────────────────────────
-        // ARMBAND: capability only (no curios equivalent in this pack)
-        eqSlots.add(new EqSlotDef("ARMBAND",    ox,       oy + 40,  SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_ARMBAND));
-        // BODY ARMOR: Curios "body" when loaded, vanilla CHEST otherwise
-        eqSlots.add(new EqSlotDef("BODY ARMOR", ox + 38,  oy + 40,  SS+8,   SS+14,  EqSource.ARMOR,  1,  "body",     0));
-        // EYEWEAR: capability only (no curios equivalent in this pack)
-        eqSlots.add(new EqSlotDef("EYEWEAR",    ox + 90,  oy + 40,  SS,     SS,     EqSource.CAP,    -1));
+        // RIG: Curios "body" — shows the equipped rig item (MM rigs / plate carriers).
+        // Was ARMBAND; dedicated rig equip slot separate from hard body armour.
+        eqSlots.add(new EqSlotDef("RIG",        ox,       oy + 40,  SS,     SS,     EqSource.ARMOR,  -1, "body",     0));
+        // BODY ARMOR: vanilla CHEST armor only (no curios — rigs live in RIG slot above)
+        eqSlots.add(new EqSlotDef("BODY ARMOR", ox + 38,  oy + 40,  SS+8,   SS+14,  EqSource.ARMOR,  1));
+        // KNEES: Curios "knees" — MM knee pads (black/green/tan_knee_pads)
+        // Was EYEWEAR; knee pads are the only curios "knees" items in this pack.
+        eqSlots.add(new EqSlotDef("KNEES",      ox + 90,  oy + 40,  SS,     SS,     EqSource.ARMOR,  -1, "knees",    0));
 
         // ── Row 3: Legs / Feet ────────────────────────────────────────
         // PANTS / BOOTS: vanilla armor slots (Curios typically doesn't have these)
