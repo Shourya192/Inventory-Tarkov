@@ -205,6 +205,7 @@ public class TarkovInventoryMenu extends AbstractContainerMenu {
 
     private void saveBack() {
         ItemStack backpack = getBackpackStack();
+        if (backpack.isEmpty()) return;
         TarkovBackpackItem.saveInventory(backpack, gridInventory);
         saveSmallContainers(backpack);
     }
@@ -236,8 +237,9 @@ public class TarkovInventoryMenu extends AbstractContainerMenu {
     }
 
     private ItemStack getBackpackStack() {
-        return playerInventory.player.getItemInHand(
+        ItemStack stack = playerInventory.player.getItemInHand(
                 hand == 0 ? net.minecraft.world.InteractionHand.MAIN_HAND
                           : net.minecraft.world.InteractionHand.OFF_HAND);
+        return (stack.getItem() instanceof TarkovBackpackItem) ? stack : ItemStack.EMPTY;
     }
 }
