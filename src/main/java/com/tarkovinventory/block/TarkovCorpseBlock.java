@@ -51,9 +51,8 @@ public class TarkovCorpseBlock extends BaseEntityBlock {
                          @NotNull BlockPos pos, @NotNull BlockState newState, boolean piston) {
         if (!state.is(newState.getBlock())) {
             if (!level.isClientSide && level.getBlockEntity(pos) instanceof TarkovCorpseBlockEntity be) {
-                for (ItemStack stack : be.getItems()) {
-                    popResource(level, pos, stack);
-                }
+                be.getSlottedItems().values().forEach(stack -> popResource(level, pos, stack));
+                be.getInventoryItems().forEach(stack -> popResource(level, pos, stack));
             }
         }
         super.onRemove(state, level, pos, newState, piston);
