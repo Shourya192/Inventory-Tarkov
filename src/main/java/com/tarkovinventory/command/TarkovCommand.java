@@ -2,6 +2,7 @@ package com.tarkovinventory.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.tarkovinventory.container.TarkovInventoryMenu;
+import com.tarkovinventory.registry.ModItems;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -10,6 +11,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,13 +20,19 @@ public final class TarkovCommand {
     private TarkovCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // /ti           — open inventory
+        // /ti backpack  — give yourself a Tactical Backpack item
         dispatcher.register(
             Commands.literal("ti")
                 .executes(ctx -> openInventory(ctx.getSource()))
+                .then(Commands.literal("backpack")
+                    .executes(ctx -> giveBackpack(ctx.getSource())))
         );
         dispatcher.register(
             Commands.literal("tarkovinventory")
                 .executes(ctx -> openInventory(ctx.getSource()))
+                .then(Commands.literal("backpack")
+                    .executes(ctx -> giveBackpack(ctx.getSource())))
         );
     }
 
@@ -42,6 +50,19 @@ public final class TarkovCommand {
                     return new TarkovInventoryMenu(windowId, inv, 0);
                 }
             }, buf -> buf.writeInt(0));
+        } catch (Exception ignored) {}
+        return 1;
+    }
+
+    private static int giveBackpack(CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            ItemStack backpack = new ItemStack(ModItems.TACTICAL_BACKPACK.get());
+            player.getInventory().add(backpack);
+            player.displayClientMessage(
+                Component.literal("§aGave you a Tactical Backpack! Hold it in your hand."),
+                false
+            );
         } catch (Exception ignored) {}
         return 1;
     }
