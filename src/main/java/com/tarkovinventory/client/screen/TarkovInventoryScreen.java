@@ -9,13 +9,18 @@ import com.tarkovinventory.inventory.BackpackSizes;
 import com.tarkovinventory.inventory.GridInventory;
 import com.tarkovinventory.inventory.GridItemSizes;
 import com.tarkovinventory.inventory.GridSize;
+import com.tarkovinventory.network.C2SLootAllPacket;
+import com.tarkovinventory.network.C2SPickupItemPacket;
+import com.tarkovinventory.network.ModNetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 
@@ -40,7 +45,12 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private static final int CHAR_PANEL_H  = 260;
     private static final int CONT_PANEL_W  = 218;
     private static final int CONT_PANEL_H  = CHAR_PANEL_H;
-    private static final int TOTAL_W       = PAD + CHAR_PANEL_W + PAD + CONT_PANEL_W + PAD;
+    private static final int VICI_PANEL_W  = 160;
+    private static final int VICI_PANEL_H  = CHAR_PANEL_H;
+    private static final int VICI_HEADER_H = 18;
+    private static final int VICI_ROW_H    = 20;
+    private static final double VICINITY_RANGE = 6.0;
+    private static final int TOTAL_W       = PAD + CHAR_PANEL_W + PAD + CONT_PANEL_W + PAD + VICI_PANEL_W + PAD;
     private static final int TOTAL_H       = PAD + CHAR_PANEL_H + PAD;
 
     // ── Grid ─────────────────────────────────────────────────────────
@@ -76,7 +86,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private static final int C_HYDRATION    = 0xFF2196F3;
     private static final int C_ENERGY       = 0xFFFFC107;
     private static final int C_WEIGHT       = 0xFFBBBBBB;
-    private static final int C_HOTBAR_BADGE = 0xFF556B4A;  // tint on hotbar-synced slots
+    private static final int C_HOTBAR_BADGE  = 0xFF556B4A;  // tint on hotbar-synced slots
+    // ── Vicinity panel colours ────────────────────────────────────────
+    private static final int C_VICI_HEADER  = 0xFF0E1A12;
+    private static final int C_VICI_ROW_ODD = 0xFF181E18;
+    private static final int C_VICI_HOVER   = 0x5060A070;
+    private static final int C_VICI_BTN     = 0xFF2A4A2A;
+    private static final int C_VICI_BTN_HOV = 0xFF3A6A3A;
+    private static final int C_VICI_DIST    = 0xFF607060;
+    private static final int C_SCROLLBAR_BG = 0xFF1A1A1A;
+    private static final int C_SCROLLBAR_FG = 0xFF4CAF50;
 
     // ── Equipment slot model ──────────────────────────────────────────
     /**
@@ -115,6 +134,13 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     // ── Curios ───────────────────────────────────────────────────────
     private List<CuriosCompat.CuriosSlotEntry> curiosSlots = new ArrayList<>();
 
+    // ── Vicinity panel ────────────────────────────────────────────────
+    private int  vicinityScroll     = 0;
+    private int  hoveredVicinityIdx = -1;
+    private boolean lootAllHovered  = false;
+    /** Cached per-frame list — rebuilt at the start of every render call. */
+    private List<ItemEntity> vicinityItems = new ArrayList<>();
+
     // ─────────────────────────────────────────────────────────────────
 
     public TarkovInventoryScreen(TarkovInventoryMenu menu, Inventory playerInv, Component title) {
@@ -139,6 +165,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private int contX()       { return leftPos + PAD + CHAR_PANEL_W + PAD; }
     private int gridOriginX() { return contX() + 2; }
     private int gridOriginY() { return panelY() + 68; }
+    private int viciX()       { return contX() + CONT_PANEL_W + PAD; }
 
     private int toGridCol(double px) {
         int rel = (int) px - gridOriginX();
@@ -209,10 +236,20 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         currentGridRows = BackpackSizes.getRows(equippedBp);
         menu.getGridInventory().setActiveDimensions(currentGridCols, currentGridRows);
 
+        // Rebuild vicinity item list
+        if (minecraft != null && minecraft.player != null && minecraft.level != null) {
+            AABB box = minecraft.player.getBoundingBox().inflate(VICINITY_RANGE);
+            vicinityItems = minecraft.level.getEntitiesOfClass(ItemEntity.class, box,
+                e -> e.isAlive() && e.distanceTo(minecraft.player) <= VICINITY_RANGE);
+        } else {
+            vicinityItems = List.of();
+        }
+
         renderBackground(gfx);
         renderBg(gfx, pt, mx, my);
         renderCharacterPanel(gfx, mx, my);
         renderContainersPanel(gfx, mx, my);
+        renderVicinityPanel(gfx, mx, my);
         renderDragging(gfx, mx, my);
         renderHoveredTooltip(gfx, mx, my);
     }
@@ -509,12 +546,132 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         }
     }
 
+    // ── Vicinity panel ────────────────────────────────────────────────
+
+    private void renderVicinityPanel(@NotNull GuiGraphics gfx, int mx, int my) {
+        int ox = viciX(), oy = panelY();
+
+        // Panel background + border
+        gfx.fill(ox, oy, ox + VICI_PANEL_W, oy + VICI_PANEL_H, C_BG_PANEL);
+        drawBorder(gfx, ox, oy, VICI_PANEL_W, VICI_PANEL_H, C_BORDER);
+
+        // ── Header ───────────────────────────────────────────────────
+        gfx.fill(ox, oy, ox + VICI_PANEL_W, oy + VICI_HEADER_H, C_VICI_HEADER);
+        gfx.drawString(font, "VICINITY", ox + 4, oy + 4, C_TEXT_TITLE, false);
+
+        // Item count badge
+        String badge = vicinityItems.size() + " item" + (vicinityItems.size() == 1 ? "" : "s");
+        gfx.drawString(font, badge, ox + 4, oy + VICI_HEADER_H + 2, C_TEXT_LABEL, false);
+
+        // "LOOT ALL" button in top-right corner of header
+        int btnW  = 44, btnH = 10;
+        int btnX  = ox + VICI_PANEL_W - btnW - 3;
+        int btnY  = oy + 4;
+        lootAllHovered = mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
+        gfx.fill(btnX, btnY, btnX + btnW, btnY + btnH, lootAllHovered ? C_VICI_BTN_HOV : C_VICI_BTN);
+        drawBorder(gfx, btnX, btnY, btnW, btnH, C_BORDER);
+        gfx.drawString(font, "LOOT ALL", btnX + 2, btnY + 1, C_TEXT_WHITE, false);
+
+        // ── Item list ─────────────────────────────────────────────────
+        int contentYTop = oy + VICI_HEADER_H + 12;
+        int contentH    = VICI_PANEL_H - VICI_HEADER_H - 12;
+
+        // Scrollbar rail + thumb
+        boolean needsScroll = vicinityItems.size() * VICI_ROW_H > contentH;
+        int scrollbarX = ox + VICI_PANEL_W - 5;
+        int scrollbarW = 4;
+        if (needsScroll) {
+            int totalH   = vicinityItems.size() * VICI_ROW_H;
+            int maxScroll = Math.max(0, totalH - contentH);
+            vicinityScroll = Math.min(vicinityScroll, maxScroll);
+
+            gfx.fill(scrollbarX, contentYTop, scrollbarX + scrollbarW,
+                     contentYTop + contentH, C_SCROLLBAR_BG);
+            int thumbH  = Math.max(12, contentH * contentH / totalH);
+            int thumbY  = contentYTop + (int)((long) vicinityScroll * (contentH - thumbH) / maxScroll);
+            gfx.fill(scrollbarX, thumbY, scrollbarX + scrollbarW,
+                     thumbY + thumbH, C_SCROLLBAR_FG);
+        } else {
+            vicinityScroll = 0;
+        }
+
+        // Scissor to the content area so items don't bleed outside
+        int listW = VICI_PANEL_W - (needsScroll ? scrollbarW + 1 : 1);
+        gfx.enableScissor(ox, contentYTop, ox + listW, contentYTop + contentH);
+
+        hoveredVicinityIdx = -1;
+        for (int i = 0; i < vicinityItems.size(); i++) {
+            ItemEntity entity = vicinityItems.get(i);
+            ItemStack  stack  = entity.getItem();
+
+            int rowY = contentYTop + i * VICI_ROW_H - vicinityScroll;
+            if (rowY + VICI_ROW_H <= contentYTop) continue;
+            if (rowY >= contentYTop + contentH)   break;
+
+            // Zebra stripe
+            if ((i & 1) == 1) gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_ROW_ODD);
+
+            // Hover highlight
+            boolean rowHov = mx >= ox && mx < ox + listW && my >= rowY && my < rowY + VICI_ROW_H;
+            if (rowHov) { gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_HOVER); hoveredVicinityIdx = i; }
+
+            // Icon
+            gfx.renderItem(stack, ox + 2, rowY + 2);
+            gfx.renderItemDecorations(font, stack, ox + 2, rowY + 2);
+
+            // Distance string
+            double dist = 0;
+            if (minecraft != null && minecraft.player != null)
+                dist = entity.distanceTo(minecraft.player);
+            String distStr = String.format("%.1fm", dist);
+            int    distX   = ox + listW - font.width(distStr) - 3;
+            gfx.drawString(font, distStr, distX, rowY + 6, C_VICI_DIST, false);
+
+            // Name (truncated to fit between icon and distance)
+            int nameMaxW = distX - (ox + 20) - 2;
+            String name  = stack.getHoverName().getString();
+            while (name.length() > 1 && font.width(name) > nameMaxW)
+                name = name.substring(0, name.length() - 1);
+            if (font.width(stack.getHoverName().getString()) > nameMaxW) name += "…";
+            gfx.drawString(font, name, ox + 20, rowY + 6, C_TEXT_WHITE, false);
+        }
+
+        gfx.disableScissor();
+
+        // Empty-state label
+        if (vicinityItems.isEmpty()) {
+            gfx.drawString(font, "Nothing nearby", ox + 14, contentYTop + 10, C_TEXT_LABEL, false);
+        }
+
+        // Tooltip for hovered item row
+        if (hoveredVicinityIdx >= 0 && hoveredVicinityIdx < vicinityItems.size()) {
+            ItemStack hs = vicinityItems.get(hoveredVicinityIdx).getItem();
+            gfx.renderTooltip(font, hs, mx, my);
+        }
+    }
+
     // ================================================================
     // Mouse input
     // ================================================================
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        // ── Vicinity panel clicks ──────────────────────────────────────
+        if (button == 0 && mx >= viciX() && mx < viciX() + VICI_PANEL_W) {
+            // LOOT ALL button
+            if (lootAllHovered && !vicinityItems.isEmpty()) {
+                ModNetwork.CHANNEL.sendToServer(new C2SLootAllPacket());
+                return true;
+            }
+            // Individual item pickup
+            if (hoveredVicinityIdx >= 0 && hoveredVicinityIdx < vicinityItems.size()) {
+                ModNetwork.CHANNEL.sendToServer(
+                    new C2SPickupItemPacket(vicinityItems.get(hoveredVicinityIdx).getId()));
+                return true;
+            }
+            return true; // consume click even on empty panel area
+        }
+
         if (hasBackpackEquipped()) {
             int sbBaseX = contX() + 2 + font.width("BACKPACK") + 6;
             int sbBaseY = panelY() + 42;
@@ -537,6 +694,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             return true;
         }
         return super.mouseClicked(mx, my, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        // Scroll the vicinity panel when cursor is over it
+        if (mx >= viciX() && mx < viciX() + VICI_PANEL_W) {
+            vicinityScroll = Math.max(0, (int)(vicinityScroll - delta * VICI_ROW_H));
+            return true;
+        }
+        return super.mouseScrolled(mx, my, delta);
     }
 
     private boolean handleGridClick(int col, int row, int mx, int my, int button) {
