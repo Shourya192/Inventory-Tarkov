@@ -36,9 +36,8 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private static final int CHAR_PANEL_H  = 260;
     private static final int CONT_PANEL_W  = 218;
     private static final int CONT_PANEL_H  = CHAR_PANEL_H;
-    private static final int PLAYER_INV_H  = 3 * 18 + 4 + 18;
     private static final int TOTAL_W       = PAD + CHAR_PANEL_W + PAD + CONT_PANEL_W + PAD;
-    private static final int TOTAL_H       = PAD + CHAR_PANEL_H + PAD + PLAYER_INV_H + PAD;
+    private static final int TOTAL_H       = PAD + CHAR_PANEL_H + PAD;
 
     // ── Grid ─────────────────────────────────────────────────────────
     private static final int CELL      = 17;
@@ -125,7 +124,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private int charX()       { return leftPos + PAD; }
     private int panelY()      { return topPos  + PAD; }
     private int contX()       { return leftPos + PAD + CHAR_PANEL_W + PAD; }
-    private int playerY()     { return topPos  + PAD + CHAR_PANEL_H + PAD; }
     private int gridOriginX() { return contX() + 2; }
     private int gridOriginY() { return panelY() + 68; }
 
@@ -182,7 +180,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         renderBg(gfx, pt, mx, my);
         renderCharacterPanel(gfx, mx, my);
         renderContainersPanel(gfx, mx, my);
-        renderPlayerInv(gfx, mx, my);
         renderDragging(gfx, mx, my);
         renderHoveredTooltip(gfx, mx, my);
     }
@@ -232,7 +229,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
         gfx.fill(def.x(), def.y(), def.x() + def.w(), def.y() + def.h(), filled ? C_ITEM_BG : C_SLOT_EMPTY);
         drawBorder(gfx, def.x(), def.y(), def.w(), def.h(), filled ? C_ITEM_BORDER : C_SLOT_BORDER);
-        gfx.drawString(font, def.label(), def.x(), def.y() - 8, C_TEXT_LABEL, false);
 
         if (filled) {
             int ix = def.x() + (def.w() - 16) / 2;
@@ -416,52 +412,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             renderSmallSlot(gfx, ox + i * (SS + 3), oy + 10, SS, SS, menu.getPouchSlot(i), C_SLOT_EMPTY, C_SLOT_BORDER, mx, my);
     }
 
-    // ── Player inventory ──────────────────────────────────────────────
-
-    private void renderPlayerInv(@NotNull GuiGraphics gfx, int mx, int my) {
-        int ox = leftPos + PAD, oy = playerY();
-        gfx.fill(ox - 2, oy - 2, ox + TOTAL_W - PAD * 2 + 2, oy + PLAYER_INV_H + 2, C_BG_SECTION);
-        drawBorder(gfx, ox - 2, oy - 2, TOTAL_W - PAD * 2 + 4, PLAYER_INV_H + 4, C_BORDER);
-
-        Inventory inv = minecraft.player.getInventory();
-        int gridW = 9 * 18, gridH = 3 * 18;
-
-        // Main inv — one background fill + grid lines instead of 27 × drawSlotBg
-        gfx.fill(ox, oy, ox + gridW, oy + gridH, 0xFF2A2A2A);
-        for (int col = 1; col < 9; col++) gfx.fill(ox + col * 18, oy, ox + col * 18 + 1, oy + gridH, C_SLOT_BORDER);
-        for (int row = 1; row < 3; row++) gfx.fill(ox, oy + row * 18, ox + gridW, oy + row * 18 + 1, C_SLOT_BORDER);
-        drawBorder(gfx, ox, oy, gridW, gridH, C_SLOT_BORDER);
-
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                int sx = ox + col * 18, sy = oy + row * 18;
-                ItemStack s = inv.getItem(col + row * 9 + 9);
-                if (!s.isEmpty()) { gfx.renderItem(s, sx + 1, sy + 1); gfx.renderItemDecorations(font, s, sx + 1, sy + 1); }
-                if (mx >= sx && mx < sx + 18 && my >= sy && my < sy + 18)
-                    gfx.fill(sx + 1, sy + 1, sx + 17, sy + 17, C_HIGHLIGHT);
-            }
-        }
-
-        int sepY = oy + gridH + 3;
-        gfx.fill(ox, sepY, ox + gridW, sepY + 1, C_HOTBAR_SEP);
-
-        // Hotbar — one background fill + grid lines
-        int hotbarY = sepY + 2;
-        gfx.fill(ox, hotbarY, ox + gridW, hotbarY + 18, 0xFF2A2A2A);
-        for (int col = 1; col < 9; col++) gfx.fill(ox + col * 18, hotbarY, ox + col * 18 + 1, hotbarY + 18, C_SLOT_BORDER);
-        drawBorder(gfx, ox, hotbarY, gridW, 18, C_SLOT_BORDER);
-
-        for (int col = 0; col < 9; col++) {
-            int sx = ox + col * 18, sy = hotbarY;
-            if (col == inv.selected) gfx.fill(sx, sy, sx + 18, sy + 18, 0x40FFFF00);
-            ItemStack s = inv.getItem(col);
-            if (!s.isEmpty()) { gfx.renderItem(s, sx + 1, sy + 1); gfx.renderItemDecorations(font, s, sx + 1, sy + 1); }
-            gfx.drawString(font, String.valueOf(col + 1), sx + 1, sy + 1, C_TEXT_LABEL, false);
-            if (mx >= sx && mx < sx + 18 && my >= sy && my < sy + 18)
-                gfx.fill(sx + 1, sy + 1, sx + 17, sy + 17, C_HIGHLIGHT);
-        }
-    }
-
     // ── Drag overlay ──────────────────────────────────────────────────
 
     private void renderDragging(@NotNull GuiGraphics gfx, int mx, int my) {
@@ -488,7 +438,13 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         for (EqSlotDef def : eqSlots) {
             if (mx >= def.x() && mx < def.x() + def.w() && my >= def.y() && my < def.y() + def.h()) {
                 ItemStack s = getEquipmentStack(player, def);
-                if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
+                if (!s.isEmpty()) {
+                    gfx.renderTooltip(font, s, mx, my);
+                } else {
+                    // Show the slot name when hovering an empty equipment slot
+                    gfx.renderTooltip(font,
+                        net.minecraft.network.chat.Component.literal(def.label()), mx, my);
+                }
                 return;
             }
         }
@@ -500,6 +456,8 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             if (mx >= sx && mx < sx + SS && my >= poy && my < poy + SS) {
                 ItemStack s = menu.getPocketSlot(i);
                 if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
+                else gfx.renderTooltip(font,
+                    net.minecraft.network.chat.Component.literal("POCKET " + (i + 1)), mx, my);
                 return;
             }
         }
@@ -511,21 +469,9 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             if (mx >= sx && mx < sx + SS && my >= pouY && my < pouY + SS) {
                 ItemStack s = menu.getPouchSlot(i);
                 if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
+                else gfx.renderTooltip(font,
+                    net.minecraft.network.chat.Component.literal("POUCH " + (i + 1)), mx, my);
                 return;
-            }
-        }
-
-        // Player inventory
-        int ox = leftPos + PAD, oy = playerY();
-        int relX = mx - ox, relY = my - oy;
-        if (relX >= 0 && relX < 9 * 18 && relY >= 0 && relY < 3 * 18) {
-            ItemStack s = minecraft.player.getInventory().getItem(relX / 18 + (relY / 18) * 9 + 9);
-            if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
-        } else {
-            int sepY = oy + 3 * 18 + 3;
-            if (relX >= 0 && relX < 9 * 18 && my >= sepY + 2 && my < sepY + 20) {
-                ItemStack s = minecraft.player.getInventory().getItem(relX / 18);
-                if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
             }
         }
     }
@@ -556,7 +502,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         if (handleEqSlotClick((int) mx, (int) my, button))   return true;
         if (handlePocketsClick((int) mx, (int) my, button))  return true;
         if (handlePouchClick((int) mx, (int) my, button))    return true;
-        if (handlePlayerInvClick((int) mx, (int) my, button)) return true;
 
         // Right-click outside to rotate drag
         if (button == 1 && !dragging.isEmpty()) {
@@ -644,41 +589,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 dragging = cur.copy(); draggingSize = GridItemSizes.getSize(dragging.getItem()); dragOffX = dragOffY = 8;
                 menu.setPouchSlot(i, ItemStack.EMPTY);
             }
-            return true;
-        }
-        return false;
-    }
-
-    private boolean handlePlayerInvClick(int mx, int my, int button) {
-        int ox = leftPos + PAD, oy = playerY();
-        int sepY = oy + 3 * 18 + 3;
-        int relX = mx - ox, relY = my - oy;
-        Inventory inv = minecraft.player.getInventory();
-
-        int invSlot = -1;
-        if (relX >= 0 && relX < 9 * 18 && relY >= 0 && relY < 3 * 18)
-            invSlot = relX / 18 + (relY / 18) * 9 + 9;
-        else if (relX >= 0 && relX < 9 * 18 && my >= sepY + 2 && my < sepY + 20)
-            invSlot = relX / 18;
-
-        if (invSlot < 0) return false;
-        ItemStack cur = inv.getItem(invSlot);
-
-        if (button == 0) {
-            if (!dragging.isEmpty()) {
-                inv.setItem(invSlot, dragging.copy());
-                dragging = cur.isEmpty() ? ItemStack.EMPTY : cur.copy();
-                if (!dragging.isEmpty()) { draggingSize = GridItemSizes.getSize(dragging.getItem()); dragOffX = dragOffY = 8; }
-            } else if (!cur.isEmpty()) {
-                dragging = cur.copy(); draggingSize = GridItemSizes.getSize(dragging.getItem()); dragOffX = dragOffY = 8;
-                inv.setItem(invSlot, ItemStack.EMPTY);
-            }
-            return true;
-        }
-        if (button == 1 && !dragging.isEmpty() && cur.isEmpty()) {
-            inv.setItem(invSlot, dragging.copyWithCount(1));
-            dragging.shrink(1);
-            if (dragging.isEmpty()) dragging = ItemStack.EMPTY;
             return true;
         }
         return false;
