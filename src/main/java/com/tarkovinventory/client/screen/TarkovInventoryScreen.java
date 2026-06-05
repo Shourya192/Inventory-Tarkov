@@ -31,8 +31,10 @@ import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Full Tarkov-style character inventory screen.
@@ -163,7 +165,9 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private static final int  RIG_CELL   = 18; // px per rig-slot cell (incl. 1-px gap)
 
     // ── Curios ───────────────────────────────────────────────────────
-    private List<CuriosCompat.CuriosSlotEntry> curiosSlots = new ArrayList<>();
+    private List<CuriosCompat.CuriosSlotEntry> curiosSlots   = new ArrayList<>();
+    /** All curios slot-type IDs present on this player (may be empty or filled). */
+    private Set<String>                        curiosSlotIds = Collections.emptySet();
 
     // ── Ground / Vicinity panel state ────────────────────────────────
     private int              vicinityScroll     = 0;
@@ -302,20 +306,20 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         int oy = panelY() + 14;
 
         // ── Row 1: Head ──────────────────────────────────────────────
-        // EARPIECE: no standard Curios slot, stored in capability
-        eqSlots.add(new EqSlotDef("EARPIECE",   ox,       oy,       SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_EARPIECE));
+        // EARPIECE: Curios "earwear" (confirmed in-game slot ID)
+        eqSlots.add(new EqSlotDef("EARPIECE",   ox,       oy,       SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_EARPIECE, "earwear",  0));
         // HEADWEAR: Curios "head" when loaded, vanilla HEAD armor otherwise
-        eqSlots.add(new EqSlotDef("HEADWEAR",   ox + 38,  oy,       SS+8,   SS+8,   EqSource.ARMOR,  0,  "head", 0));
-        // FACE COVER: Curios "face" when loaded, otherwise stored in capability (no vanilla slot)
-        eqSlots.add(new EqSlotDef("FACE COVER", ox + 90,  oy,       SS,     SS,     EqSource.CAP,    -1, "face", 0));
+        eqSlots.add(new EqSlotDef("HEADWEAR",   ox + 38,  oy,       SS+8,   SS+8,   EqSource.ARMOR,  0,  "head",     0));
+        // FACE COVER: Curios "facewear" (confirmed in-game slot ID)
+        eqSlots.add(new EqSlotDef("FACE COVER", ox + 90,  oy,       SS,     SS,     EqSource.CAP,    -1, "facewear", 0));
 
         // ── Row 2: Torso ─────────────────────────────────────────────
-        // ARMBAND: Curios "ring" or "hands", else capability
-        eqSlots.add(new EqSlotDef("ARMBAND",    ox,       oy + 40,  SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_ARMBAND, "ring", 0));
+        // ARMBAND: capability only (no curios equivalent in this pack)
+        eqSlots.add(new EqSlotDef("ARMBAND",    ox,       oy + 40,  SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_ARMBAND));
         // BODY ARMOR: Curios "body" when loaded, vanilla CHEST otherwise
-        eqSlots.add(new EqSlotDef("BODY ARMOR", ox + 38,  oy + 40,  SS+8,   SS+14,  EqSource.ARMOR,  1,  "body", 0));
-        // EYEWEAR: Curios "charm"/"necklace", else capability
-        eqSlots.add(new EqSlotDef("EYEWEAR",    ox + 90,  oy + 40,  SS,     SS,     EqSource.CAP,    -1, "charm", 0));
+        eqSlots.add(new EqSlotDef("BODY ARMOR", ox + 38,  oy + 40,  SS+8,   SS+14,  EqSource.ARMOR,  1,  "body",     0));
+        // EYEWEAR: capability only (no curios equivalent in this pack)
+        eqSlots.add(new EqSlotDef("EYEWEAR",    ox + 90,  oy + 40,  SS,     SS,     EqSource.CAP,    -1));
 
         // ── Row 3: Legs / Feet ────────────────────────────────────────
         // PANTS / BOOTS: vanilla armor slots (Curios typically doesn't have these)
@@ -334,7 +338,11 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     private void refreshCuriosSlots() {
         if (CuriosCompat.isLoaded() && minecraft != null && minecraft.player != null) {
-            curiosSlots = CuriosCompat.getEquippedSlots(minecraft.player);
+            curiosSlots   = CuriosCompat.getEquippedSlots(minecraft.player);
+            curiosSlotIds = CuriosCompat.getAllSlotIds(minecraft.player);
+        } else {
+            curiosSlots   = new ArrayList<>();
+            curiosSlotIds = Collections.emptySet();
         }
     }
 
@@ -1317,16 +1325,18 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     /**
      * Returns the ItemStack for an equipment slot.
-     * Priority: Curios slot (if mapped + loaded + slot type exists) → vanilla ARMOR / CAP / HOTBAR.
+     * Priority: Curios slot (if mapped + loaded + slot type exists on player) →
+     *           vanilla ARMOR / CAP / HOTBAR.
+     *
+     * Uses {@link #curiosSlotIds} (all slot types, including empty) so that an
+     * empty curios slot is still returned as EMPTY rather than falling through
+     * to the wrong vanilla source.
      */
     private ItemStack getEquipmentStack(Player player, EqSlotDef def) {
-        // Curios override
-        if (!def.curiosSlotId().isEmpty() && CuriosCompat.isLoaded()) {
-            for (CuriosCompat.CuriosSlotEntry e : curiosSlots) {
-                if (e.slotId().equals(def.curiosSlotId()) && e.index() == def.curiosSlotIndex())
-                    return e.stack(); // may be EMPTY — that's fine, slot exists
-            }
-            // Slot type not present on this player — fall through to vanilla
+        if (!def.curiosSlotId().isEmpty() && CuriosCompat.isLoaded()
+                && curiosSlotIds.contains(def.curiosSlotId())) {
+            // Slot type exists on this player — read directly (handles empty slots correctly)
+            return CuriosCompat.getSlotItem(player, def.curiosSlotId(), def.curiosSlotIndex());
         }
         return switch (def.source()) {
             case ARMOR -> def.sourceIdx() < 0 ? ItemStack.EMPTY : switch (def.sourceIdx()) {
@@ -1344,17 +1354,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     /**
      * Writes a stack to an equipment slot.
-     * Writes to Curios when mapped + loaded, otherwise writes to vanilla ARMOR / CAP / HOTBAR.
+     * Writes to Curios when mapped + loaded + slot type exists on player,
+     * otherwise writes to vanilla ARMOR / CAP / HOTBAR.
+     *
+     * Uses {@link #curiosSlotIds} so empty curios slots can still be written to.
      */
     private void setEquipmentStack(Player player, EqSlotDef def, ItemStack stack) {
-        // Curios override
-        if (!def.curiosSlotId().isEmpty() && CuriosCompat.isLoaded()) {
-            boolean slotExists = curiosSlots.stream()
-                    .anyMatch(e -> e.slotId().equals(def.curiosSlotId()) && e.index() == def.curiosSlotIndex());
-            if (slotExists) {
-                CuriosCompat.setSlot(player, def.curiosSlotId(), def.curiosSlotIndex(), stack);
-                return;
-            }
+        if (!def.curiosSlotId().isEmpty() && CuriosCompat.isLoaded()
+                && curiosSlotIds.contains(def.curiosSlotId())) {
+            CuriosCompat.setSlot(player, def.curiosSlotId(), def.curiosSlotIndex(), stack);
+            return;
         }
         // Fall back to vanilla source
         switch (def.source()) {
