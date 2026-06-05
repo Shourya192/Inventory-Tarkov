@@ -25,10 +25,15 @@ public class TarkovInventoryMod {
 
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::clientSetup);
+
+        // RegisterCapabilitiesEvent fires on the MOD bus — register it here explicitly.
+        // NOTE: do NOT also call MinecraftForge.EVENT_BUS.register(ModCapabilities.class)
+        // because @Mod.EventBusSubscriber on that class already handles the FORGE bus events
+        // (AttachCapabilitiesEvent). Double-registering causes duplicate capability attachment.
         modEventBus.addListener(ModCapabilities::onRegisterCapabilities);
 
         MinecraftForge.EVENT_BUS.register(this);
-        MinecraftForge.EVENT_BUS.register(ModCapabilities.class);
+        // ModCapabilities Forge-bus events are handled automatically via @Mod.EventBusSubscriber
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
