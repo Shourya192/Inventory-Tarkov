@@ -299,9 +299,9 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     private boolean hasBackpackEquipped() {
         if (minecraft.player == null) return false;
+        // Any item in the ON BACK slot counts as a backpack — works with any mod
         return ModCapabilities.get(minecraft.player)
-                .map(cap -> cap.getSlot(IPlayerEquipment.SLOT_ON_BACK).getItem()
-                            instanceof com.tarkovinventory.item.TarkovBackpackItem)
+                .map(cap -> !cap.getSlot(IPlayerEquipment.SLOT_ON_BACK).isEmpty())
                 .orElse(false);
     }
 
