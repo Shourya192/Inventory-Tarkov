@@ -24,9 +24,12 @@ import java.util.List;
 /**
  * Full Tarkov-style character inventory screen.
  *
- * Left panel  : character silhouette + labeled equipment slots + stats bar
- * Right panel : POCKETS / BACKPACK grid (with search) / POUCH
- * Bottom strip: player inventory + hotbar
+ * Left panel  : character equipment slots + stats bar
+ * Right panel : POCKETS (7, hotbar 3-9) / BACKPACK grid (search) / no pouch
+ *
+ * PRIMARY weapon  → synced to hotbar slot 1 (press 1 to use)
+ * SECONDARY weapon → synced to hotbar slot 2 (press 2 to use)
+ * POCKET 1-7      → synced to hotbar slots 3-9
  */
 public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInventoryMenu> {
 
@@ -50,36 +53,34 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private static final int SS = 26;
 
     // ── Colours ───────────────────────────────────────────────────────
-    private static final int C_BG_DARK       = 0xFF111111;
-    private static final int C_BG_PANEL      = 0xFF181818;
-    private static final int C_BG_SECTION    = 0xFF1E1E1E;
-    private static final int C_BORDER        = 0xFF3A3A3A;
-    private static final int C_GRID_EMPTY    = 0xFF252525;
-    private static final int C_GRID_LINE     = 0xFF303030;
-    private static final int C_HOVER         = 0x40607060;
-    private static final int C_DRAG_VALID    = 0x7044AA44;
-    private static final int C_DRAG_INVALID  = 0x70AA4444;
-    private static final int C_ITEM_BG       = 0xFF1E3524;
-    private static final int C_ITEM_BORDER   = 0xFF4CAF50;
-    private static final int C_SLOT_EMPTY    = 0xFF242424;
-    private static final int C_SLOT_BORDER   = 0xFF444444;
-    private static final int C_TEXT_LABEL    = 0xFF8A8A7A;
-    private static final int C_TEXT_TITLE    = 0xFFD4C89A;
-    private static final int C_TEXT_WHITE    = 0xFFE0E0E0;
-    private static final int C_SEARCH_BG     = 0xFF1A2A1A;
-    private static final int C_HEALTH        = 0xFF4CAF50;
-    private static final int C_HYDRATION     = 0xFF2196F3;
-    private static final int C_ENERGY        = 0xFFFFC107;
-    private static final int C_WEIGHT        = 0xFFBBBBBB;
-    private static final int C_CURIOS_BDR    = 0xFF9C6BD6;
-    private static final int C_CURIOS_BG     = 0xFF2A1A3A;
-    private static final int C_HOTBAR_SEP    = 0xFF3A3A3A;
-    private static final int C_HIGHLIGHT     = 0x60FFFFFF;
+    private static final int C_BG_DARK      = 0xFF111111;
+    private static final int C_BG_PANEL     = 0xFF181818;
+    private static final int C_BG_SECTION   = 0xFF1E1E1E;
+    private static final int C_BORDER       = 0xFF3A3A3A;
+    private static final int C_GRID_EMPTY   = 0xFF252525;
+    private static final int C_GRID_LINE    = 0xFF303030;
+    private static final int C_HOVER        = 0x40607060;
+    private static final int C_DRAG_VALID   = 0x7044AA44;
+    private static final int C_DRAG_INVALID = 0x70AA4444;
+    private static final int C_ITEM_BG      = 0xFF1E3524;
+    private static final int C_ITEM_BORDER  = 0xFF4CAF50;
+    private static final int C_SLOT_EMPTY   = 0xFF242424;
+    private static final int C_SLOT_BORDER  = 0xFF444444;
+    private static final int C_TEXT_LABEL   = 0xFF8A8A7A;
+    private static final int C_TEXT_TITLE   = 0xFFD4C89A;
+    private static final int C_TEXT_WHITE   = 0xFFE0E0E0;
+    private static final int C_SEARCH_BG    = 0xFF1A2A1A;
+    private static final int C_HEALTH       = 0xFF4CAF50;
+    private static final int C_HYDRATION    = 0xFF2196F3;
+    private static final int C_ENERGY       = 0xFFFFC107;
+    private static final int C_WEIGHT       = 0xFFBBBBBB;
+    private static final int C_HOTBAR_BADGE = 0xFF556B4A;  // tint on hotbar-synced slots
 
     // ── Equipment slot model ──────────────────────────────────────────
+    /** HOTBAR = backed by playerInv.getItem(sourceIdx); writes immediately appear in hotbar. */
     private record EqSlotDef(String label, int x, int y, int w, int h,
                               EqSource source, int sourceIdx) {}
-    private enum EqSource { ARMOR, CAP }
+    private enum EqSource { ARMOR, CAP, HOTBAR }
 
     private List<EqSlotDef> eqSlots = new ArrayList<>();
 
@@ -87,9 +88,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private ItemStack dragging     = ItemStack.EMPTY;
     private GridSize  draggingSize = GridSize.ONE_BY_ONE;
     private int       dragOffX, dragOffY;
-    private static final int POCKET_TAG = 0x1000;
-    private static final int POUCH_TAG  = 0x2000;
-    private static final int EQ_TAG     = 0x4000;
 
     // ── Search ────────────────────────────────────────────────────────
     private boolean searchActive = false;
@@ -145,23 +143,27 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         int ox = charX() + 4;
         int oy = panelY() + 14;
 
-        // Row 1
-        eqSlots.add(new EqSlotDef("EARPIECE",   ox,       oy,       SS,    SS,    EqSource.CAP,   IPlayerEquipment.SLOT_EARPIECE));
-        eqSlots.add(new EqSlotDef("HEADWEAR",   ox + 38,  oy,       SS+8,  SS+8,  EqSource.ARMOR, 0));
-        eqSlots.add(new EqSlotDef("FACE COVER", ox + 90,  oy,       SS,    SS,    EqSource.CAP,   -1));
+        // ── Row 1: Head ──────────────────────────────────────────────
+        eqSlots.add(new EqSlotDef("EARPIECE",   ox,       oy,       SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_EARPIECE));
+        eqSlots.add(new EqSlotDef("HEADWEAR",   ox + 38,  oy,       SS+8,   SS+8,   EqSource.ARMOR,  0));
+        eqSlots.add(new EqSlotDef("FACE COVER", ox + 90,  oy,       SS,     SS,     EqSource.CAP,    -1));
 
-        // Row 2
-        eqSlots.add(new EqSlotDef("ARMBAND",    ox,       oy + 55,  SS,    SS,    EqSource.CAP,   IPlayerEquipment.SLOT_ARMBAND));
-        eqSlots.add(new EqSlotDef("BODY ARMOR", ox + 38,  oy + 55,  SS+8,  SS+14, EqSource.ARMOR, 1));
-        eqSlots.add(new EqSlotDef("EYEWEAR",    ox + 90,  oy + 55,  SS,    SS,    EqSource.CAP,   -1));
+        // ── Row 2: Torso ─────────────────────────────────────────────
+        eqSlots.add(new EqSlotDef("ARMBAND",    ox,       oy + 40,  SS,     SS,     EqSource.CAP,    IPlayerEquipment.SLOT_ARMBAND));
+        eqSlots.add(new EqSlotDef("BODY ARMOR", ox + 38,  oy + 40,  SS+8,   SS+14,  EqSource.ARMOR,  1));
+        eqSlots.add(new EqSlotDef("EYEWEAR",    ox + 90,  oy + 40,  SS,     SS,     EqSource.CAP,    -1));
 
-        // Row 3
-        eqSlots.add(new EqSlotDef("ON SLING",   ox,       oy + 120, SS+8,  SS+20, EqSource.CAP,   IPlayerEquipment.SLOT_ON_SLING));
-        eqSlots.add(new EqSlotDef("HOLSTER",    ox + 90,  oy + 120, SS+8,  SS+8,  EqSource.CAP,   IPlayerEquipment.SLOT_HOLSTER));
+        // ── Row 3: Legs / Feet ────────────────────────────────────────
+        eqSlots.add(new EqSlotDef("PANTS",      ox + 5,   oy + 90,  SS+8,   SS+14,  EqSource.ARMOR,  2));
+        eqSlots.add(new EqSlotDef("BOOTS",      ox + 65,  oy + 90,  SS+8,   SS,     EqSource.ARMOR,  3));
 
-        // Row 4
-        eqSlots.add(new EqSlotDef("ON BACK",    ox,       oy + 175, SS+8,  SS+20, EqSource.CAP,   IPlayerEquipment.SLOT_ON_BACK));
-        eqSlots.add(new EqSlotDef("SCABBARD",   ox + 90,  oy + 175, SS+8,  SS,    EqSource.CAP,   IPlayerEquipment.SLOT_SCABBARD));
+        // ── Row 4: Weapons (hotbar synced) ────────────────────────────
+        // PRIMARY → hotbar slot 0 (press 1), SECONDARY → hotbar slot 1 (press 2)
+        eqSlots.add(new EqSlotDef("PRIMARY",    ox,       oy + 130, SS+8,   SS+20,  EqSource.HOTBAR, 0));
+        eqSlots.add(new EqSlotDef("SECONDARY",  ox + 90,  oy + 130, SS+8,   SS+8,   EqSource.HOTBAR, 1));
+
+        // ── Row 5: Backpack ───────────────────────────────────────────
+        eqSlots.add(new EqSlotDef("ON BACK",    ox,       oy + 182, SS+8,   SS+20,  EqSource.CAP,    IPlayerEquipment.SLOT_ON_BACK));
     }
 
     private void refreshCuriosSlots() {
@@ -187,12 +189,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     @Override
     protected void renderBg(@NotNull GuiGraphics gfx, float pt, int mx, int my) {
         gfx.fill(leftPos, topPos, leftPos + TOTAL_W, topPos + TOTAL_H, C_BG_DARK);
-        // Title bar
         gfx.fill(leftPos, topPos, leftPos + TOTAL_W, topPos + 12, 0xFF0E0E0E);
         gfx.drawString(font, "TARKOV INVENTORY", leftPos + 4, topPos + 2, C_TEXT_TITLE, false);
         String esc = "[ ESC ] Close";
         gfx.drawString(font, esc, leftPos + TOTAL_W - font.width(esc) - 4, topPos + 2, C_TEXT_LABEL, false);
-        // Panel divider
         gfx.fill(contX() - PAD / 2, panelY(), contX() - PAD / 2 + 1, panelY() + CHAR_PANEL_H, C_BORDER);
     }
 
@@ -207,28 +207,21 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         for (int i = 0; i < eqSlots.size(); i++)
             renderEquipmentSlot(gfx, i, player, mx, my);
 
-        // Curios row
-        if (CuriosCompat.isLoaded() && !curiosSlots.isEmpty()) {
-            int cy = oy + CHAR_PANEL_H - 42;
-            gfx.drawString(font, "CURIOS", ox + 4, cy - 10, C_CURIOS_BDR, false);
-            int shown = 0;
-            for (CuriosCompat.CuriosSlotEntry e : curiosSlots) {
-                if (shown >= 6) break;
-                renderSmallSlot(gfx, ox + 4 + shown * (SS + 2), cy, SS, SS, e.stack(), C_CURIOS_BG, C_CURIOS_BDR, mx, my);
-                shown++;
-            }
-        }
-
-        renderStatsBar(gfx, ox, oy + CHAR_PANEL_H - (CuriosCompat.isLoaded() && !curiosSlots.isEmpty() ? 62 : 18));
+        renderStatsBar(gfx, ox, oy + CHAR_PANEL_H - 18);
     }
 
     private void renderEquipmentSlot(@NotNull GuiGraphics gfx, int idx, Player player, int mx, int my) {
         EqSlotDef def   = eqSlots.get(idx);
         ItemStack stack = getEquipmentStack(player, def);
         boolean filled  = !stack.isEmpty();
+        boolean isHotbar = def.source() == EqSource.HOTBAR;
 
-        gfx.fill(def.x(), def.y(), def.x() + def.w(), def.y() + def.h(), filled ? C_ITEM_BG : C_SLOT_EMPTY);
-        drawBorder(gfx, def.x(), def.y(), def.w(), def.h(), filled ? C_ITEM_BORDER : C_SLOT_BORDER);
+        // Background: hotbar-synced slots get a subtle green-tinted bg
+        int bgColor     = filled ? C_ITEM_BG : (isHotbar ? 0xFF1A2010 : C_SLOT_EMPTY);
+        int borderColor = filled ? C_ITEM_BORDER : (isHotbar ? C_HOTBAR_BADGE : C_SLOT_BORDER);
+
+        gfx.fill(def.x(), def.y(), def.x() + def.w(), def.y() + def.h(), bgColor);
+        drawBorder(gfx, def.x(), def.y(), def.w(), def.h(), borderColor);
 
         if (filled) {
             int ix = def.x() + (def.w() - 16) / 2;
@@ -250,9 +243,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                     gfx.drawString(font, "§6" + lbl, def.x() + 2, def.y() + def.h() + 1, 0xFFFFAA00, false);
             }
         } else {
+            // Empty slot — draw a "+" cross
             int cx = def.x() + def.w() / 2, cy = def.y() + def.h() / 2;
             gfx.fill(cx - 6, cy - 1, cx + 6, cy + 1, 0xFF303030);
             gfx.fill(cx - 1, cy - 6, cx + 1, cy + 6, 0xFF303030);
+
+            // Hotbar badge: small number in corner showing hotbar key
+            if (isHotbar) {
+                String key = String.valueOf(def.sourceIdx() + 1);
+                gfx.drawString(font, key, def.x() + 2, def.y() + 2, C_HOTBAR_BADGE, false);
+            }
         }
 
         if (mx >= def.x() && mx < def.x() + def.w() && my >= def.y() && my < def.y() + def.h())
@@ -262,16 +262,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private void renderStatsBar(@NotNull GuiGraphics gfx, int ox, int oy) {
         Player p = minecraft.player;
         if (p == null) return;
-        float hp  = p.getHealth(), maxHp = p.getMaxHealth();
+        float hp   = p.getHealth(), maxHp = p.getMaxHealth();
         float food = p.getFoodData().getFoodLevel();
         float sat  = p.getFoodData().getSaturationLevel();
-        int items = 0;
+        int items  = 0;
         for (int i = 0; i < p.getInventory().getContainerSize(); i++)
             if (!p.getInventory().getItem(i).isEmpty()) items++;
 
-        gfx.drawString(font, items + " KG", ox + 4,  oy,      C_WEIGHT,    false);
+        gfx.drawString(font, items + " KG",          ox + 4,  oy,      C_WEIGHT,    false);
         gfx.drawString(font, (int)hp + "/" + (int)maxHp, ox + 4, oy + 10, C_HEALTH, false);
-        gfx.drawString(font, (int)food + "/100",  ox + 70, oy,      C_ENERGY,    false);
+        gfx.drawString(font, (int)food + "/100",     ox + 70, oy,      C_ENERGY,    false);
         gfx.drawString(font, (int)(sat*10)/10f + "", ox + 70, oy + 10, C_HYDRATION, false);
     }
 
@@ -282,20 +282,25 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         gfx.fill(ox, oy, ox + CONT_PANEL_W, oy + CONT_PANEL_H, C_BG_PANEL);
         drawBorder(gfx, ox, oy, CONT_PANEL_W, CONT_PANEL_H, C_BORDER);
 
-        renderPocketsSection(gfx, ox + 2, oy + 2,  mx, my);
+        renderPocketsSection(gfx, ox + 2, oy + 2, mx, my);
         renderBackpackSection(gfx, ox + 2, oy + 42, mx, my);
-        renderPouchSection(gfx,    ox + 2, oy + CONT_PANEL_H - 44, mx, my);
     }
 
     private void renderPocketsSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
-        gfx.drawString(font, "POCKETS", ox, oy, C_TEXT_TITLE, false);
-        for (int i = 0; i < TarkovInventoryMenu.POCKETS_COUNT; i++)
-            renderSmallSlot(gfx, ox + i * (SS + 3), oy + 10, SS, SS, menu.getPocketSlot(i), C_SLOT_EMPTY, C_SLOT_BORDER, mx, my);
+        gfx.drawString(font, "POCKETS  [hotbar 3-9]", ox, oy, C_TEXT_TITLE, false);
+        int count = TarkovInventoryMenu.POCKETS_COUNT; // 7
+        for (int i = 0; i < count; i++) {
+            int sx = ox + i * (SS + 3);
+            ItemStack s = menu.getPocketSlot(i);
+            renderSmallSlot(gfx, sx, oy + 10, SS, SS, s, C_SLOT_EMPTY, C_SLOT_BORDER, mx, my);
+            // Hotbar number badge
+            if (s.isEmpty())
+                gfx.drawString(font, String.valueOf(i + 3), sx + 2, oy + 11, C_HOTBAR_BADGE, false);
+        }
     }
 
     private boolean hasBackpackEquipped() {
         if (minecraft.player == null) return false;
-        // Any item in the ON BACK slot counts as a backpack — works with any mod
         return ModCapabilities.get(minecraft.player)
                 .map(cap -> !cap.getSlot(IPlayerEquipment.SLOT_ON_BACK).isEmpty())
                 .orElse(false);
@@ -305,14 +310,12 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         gfx.drawString(font, "BACKPACK", ox, oy, C_TEXT_TITLE, false);
 
         int areaX = ox, areaY = oy + 10;
-        int areaW = CONT_PANEL_W - 4, areaH = CONT_PANEL_H - 44 - 10 - areaY + panelY() + 42;
+        int areaW = CONT_PANEL_W - 4, areaH = CONT_PANEL_H - 42 - 10 - (areaY - panelY());
 
         if (!hasBackpackEquipped()) {
-            // No backpack in ON BACK slot — show locked placeholder
             int midX = areaX + areaW / 2, midY = areaY + areaH / 2;
             gfx.fill(areaX, areaY, areaX + areaW, areaY + areaH, 0xFF161616);
             drawBorder(gfx, areaX, areaY, areaW, areaH, 0xFF2A2A2A);
-            // Draw big cross
             gfx.fill(midX - 12, midY - 2, midX + 12, midY + 2, 0xFF2A2A2A);
             gfx.fill(midX - 2, midY - 12, midX + 2, midY + 12, 0xFF2A2A2A);
             String msg1 = "NO BACKPACK";
@@ -323,7 +326,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             return;
         }
 
-        // Backpack equipped — show search bar + grid
+        // Search bar
         int sbX = ox + font.width("BACKPACK") + 6;
         int sbW = CONT_PANEL_W - (sbX - contX()) - 4;
         gfx.fill(sbX, oy, sbX + sbW, oy + 10, searchActive ? C_SEARCH_BG : 0xFF1A1A1A);
@@ -342,20 +345,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         hoverGridRow = toGridRow(my);
         tooltipSlot  = -1;
 
-        // Grid background — 1 fill instead of 360 per-cell fills
         gfx.fill(ox, oy, ox + GRID_W, oy + GRID_H, C_GRID_EMPTY);
-        // Vertical separator lines (GRID_COLS-1 calls)
         for (int col = 1; col < GRID_COLS; col++) {
             int lx = ox + col * CELL - 1;
             gfx.fill(lx, oy, lx + 1, oy + GRID_H, C_GRID_LINE);
         }
-        // Horizontal separator lines (GRID_ROWS-1 calls)
         for (int row = 1; row < GRID_ROWS; row++) {
             int ly = oy + row * CELL - 1;
             gfx.fill(ox, ly, ox + GRID_W, ly + 1, C_GRID_LINE);
         }
 
-        // Placed items
         for (int i = 0; i < GridInventory.TOTAL_CELLS; i++) {
             ItemStack stack = inv.getItem(i);
             if (stack.isEmpty()) continue;
@@ -373,9 +372,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 int ix = px + (pw - 16) / 2, iy = py + (ph - 16) / 2;
                 gfx.renderItem(stack, ix, iy);
                 gfx.renderItemDecorations(font, stack, ix, iy);
-                // Item name
                 gfx.drawString(font, shortenName(stack.getHoverName().getString(), sz.width()), px + 1, py + 1, C_TEXT_LABEL, false);
-                // Durability bar
                 if (stack.isDamageableItem()) {
                     float dur = 1f - (float)stack.getDamageValue() / stack.getMaxDamage();
                     int bw = pw - 2, bFill = (int)(bw * dur), by = py + ph - 3;
@@ -390,13 +387,11 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 tooltipSlot = i;
         }
 
-        // Hover tint on empty cell
         if (hoverGridCol >= 0 && hoverGridRow >= 0 && dragging.isEmpty() && tooltipSlot < 0) {
             int px = ox + hoverGridCol * CELL, py = oy + hoverGridRow * CELL;
             gfx.fill(px, py, px + CELL - 1, py + CELL - 1, C_HOVER);
         }
 
-        // Drag placement preview
         if (!dragging.isEmpty() && hoverGridCol >= 0 && hoverGridRow >= 0) {
             boolean fits = inv.canPlace(hoverGridCol, hoverGridRow, draggingSize);
             int pw = draggingSize.width() * CELL - 1, ph = draggingSize.height() * CELL - 1;
@@ -404,12 +399,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                      ox + hoverGridCol * CELL + pw, oy + hoverGridRow * CELL + ph,
                      fits ? C_DRAG_VALID : C_DRAG_INVALID);
         }
-    }
-
-    private void renderPouchSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
-        gfx.drawString(font, "POUCH", ox, oy, C_TEXT_TITLE, false);
-        for (int i = 0; i < TarkovInventoryMenu.POUCH_COUNT; i++)
-            renderSmallSlot(gfx, ox + i * (SS + 3), oy + 10, SS, SS, menu.getPouchSlot(i), C_SLOT_EMPTY, C_SLOT_BORDER, mx, my);
     }
 
     // ── Drag overlay ──────────────────────────────────────────────────
@@ -441,15 +430,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 if (!s.isEmpty()) {
                     gfx.renderTooltip(font, s, mx, my);
                 } else {
-                    // Show the slot name when hovering an empty equipment slot
-                    gfx.renderTooltip(font,
-                        net.minecraft.network.chat.Component.literal(def.label()), mx, my);
+                    String tip = def.label();
+                    if (def.source() == EqSource.HOTBAR)
+                        tip += " (hotbar " + (def.sourceIdx() + 1) + ")";
+                    gfx.renderTooltip(font, Component.literal(tip), mx, my);
                 }
                 return;
             }
         }
 
-        // Pockets
+        // Pockets tooltip
         int pox = contX() + 2, poy = panelY() + 2 + 10;
         for (int i = 0; i < TarkovInventoryMenu.POCKETS_COUNT; i++) {
             int sx = pox + i * (SS + 3);
@@ -457,20 +447,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 ItemStack s = menu.getPocketSlot(i);
                 if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
                 else gfx.renderTooltip(font,
-                    net.minecraft.network.chat.Component.literal("POCKET " + (i + 1)), mx, my);
-                return;
-            }
-        }
-
-        // Pouch
-        int pouY = panelY() + CONT_PANEL_H - 44 + 10;
-        for (int i = 0; i < TarkovInventoryMenu.POUCH_COUNT; i++) {
-            int sx = contX() + 2 + i * (SS + 3);
-            if (mx >= sx && mx < sx + SS && my >= pouY && my < pouY + SS) {
-                ItemStack s = menu.getPouchSlot(i);
-                if (!s.isEmpty()) gfx.renderTooltip(font, s, mx, my);
-                else gfx.renderTooltip(font,
-                    net.minecraft.network.chat.Component.literal("POUCH " + (i + 1)), mx, my);
+                    Component.literal("POCKET " + (i + 1) + " (hotbar " + (i + 3) + ")"), mx, my);
                 return;
             }
         }
@@ -482,7 +459,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // Grid + search bar — only active when backpack is equipped
         if (hasBackpackEquipped()) {
             int sbBaseX = contX() + 2 + font.width("BACKPACK") + 6;
             int sbBaseY = panelY() + 42;
@@ -492,23 +468,18 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 if (!searchActive) searchText = "";
                 return true;
             }
-
             int col = toGridCol(mx), row = toGridRow(my);
-            if (col >= 0 && row >= 0) {
+            if (col >= 0 && row >= 0)
                 return handleGridClick(col, row, (int) mx, (int) my, button);
-            }
         }
 
-        if (handleEqSlotClick((int) mx, (int) my, button))   return true;
-        if (handlePocketsClick((int) mx, (int) my, button))  return true;
-        if (handlePouchClick((int) mx, (int) my, button))    return true;
+        if (handleEqSlotClick((int) mx, (int) my, button))  return true;
+        if (handlePocketsClick((int) mx, (int) my, button)) return true;
 
-        // Right-click outside to rotate drag
         if (button == 1 && !dragging.isEmpty()) {
             draggingSize = draggingSize.rotated();
             return true;
         }
-
         return super.mouseClicked(mx, my, button);
     }
 
@@ -574,26 +545,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         return false;
     }
 
-    private boolean handlePouchClick(int mx, int my, int button) {
-        if (button != 0) return false;
-        int ox = contX() + 2, oy = panelY() + CONT_PANEL_H - 44 + 10;
-        for (int i = 0; i < TarkovInventoryMenu.POUCH_COUNT; i++) {
-            int sx = ox + i * (SS + 3);
-            if (mx < sx || mx >= sx + SS || my < oy || my >= oy + SS) continue;
-            ItemStack cur = menu.getPouchSlot(i);
-            if (!dragging.isEmpty()) {
-                menu.setPouchSlot(i, dragging.copy());
-                dragging = cur.isEmpty() ? ItemStack.EMPTY : cur.copy();
-                if (!dragging.isEmpty()) { draggingSize = GridItemSizes.getSize(dragging.getItem()); dragOffX = dragOffY = 8; }
-            } else if (!cur.isEmpty()) {
-                dragging = cur.copy(); draggingSize = GridItemSizes.getSize(dragging.getItem()); dragOffX = dragOffY = 8;
-                menu.setPouchSlot(i, ItemStack.EMPTY);
-            }
-            return true;
-        }
-        return false;
-    }
-
     // ================================================================
     // Keyboard — search input
     // ================================================================
@@ -608,7 +559,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             searchText = searchText.substring(0, searchText.length() - 1);
             return true;
         }
-        if (searchActive) return true; // consume while typing
+        if (searchActive) return true;
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -622,7 +573,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     public void onClose() { returnDragging(); super.onClose(); }
 
     // ================================================================
-    // Equipment stack access
+    // Equipment stack access (ARMOR / CAP / HOTBAR)
     // ================================================================
 
     private ItemStack getEquipmentStack(Player player, EqSlotDef def) {
@@ -636,20 +587,28 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             };
             case CAP -> def.sourceIdx() < 0 ? ItemStack.EMPTY
                       : ModCapabilities.get(player).map(c -> c.getSlot(def.sourceIdx())).orElse(ItemStack.EMPTY);
+            case HOTBAR -> player.getInventory().getItem(def.sourceIdx());
         };
     }
 
     private void setEquipmentStack(Player player, EqSlotDef def, ItemStack stack) {
-        if (def.source() == EqSource.ARMOR && def.sourceIdx() >= 0) {
-            player.setItemSlot(switch (def.sourceIdx()) {
-                case 0  -> EquipmentSlot.HEAD;
-                case 1  -> EquipmentSlot.CHEST;
-                case 2  -> EquipmentSlot.LEGS;
-                case 3  -> EquipmentSlot.FEET;
-                default -> EquipmentSlot.MAINHAND;
-            }, stack);
-        } else if (def.source() == EqSource.CAP && def.sourceIdx() >= 0) {
-            ModCapabilities.get(player).ifPresent(c -> c.setSlot(def.sourceIdx(), stack));
+        switch (def.source()) {
+            case ARMOR -> {
+                if (def.sourceIdx() >= 0) {
+                    player.setItemSlot(switch (def.sourceIdx()) {
+                        case 0  -> EquipmentSlot.HEAD;
+                        case 1  -> EquipmentSlot.CHEST;
+                        case 2  -> EquipmentSlot.LEGS;
+                        case 3  -> EquipmentSlot.FEET;
+                        default -> EquipmentSlot.MAINHAND;
+                    }, stack);
+                }
+            }
+            case CAP -> {
+                if (def.sourceIdx() >= 0)
+                    ModCapabilities.get(player).ifPresent(c -> c.setSlot(def.sourceIdx(), stack));
+            }
+            case HOTBAR -> player.getInventory().setItem(def.sourceIdx(), stack);
         }
     }
 
@@ -695,11 +654,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         gfx.fill(x,         y + h - 1, x + w, y + h,     c);
         gfx.fill(x,         y,         x + 1, y + h,     c);
         gfx.fill(x + w - 1, y,         x + w, y + h,     c);
-    }
-
-    private void drawSlotBg(GuiGraphics gfx, int x, int y) {
-        gfx.fill(x + 1, y + 1, x + 17, y + 17, 0xFF2A2A2A);
-        drawBorder(gfx, x, y, 18, 18, C_SLOT_BORDER);
     }
 
     @Override
