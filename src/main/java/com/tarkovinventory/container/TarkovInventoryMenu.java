@@ -16,25 +16,23 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Menu for the full Tarkov inventory screen.
  *
- * Grid, pockets, and pouch are stored in the player capability — no
- * physical backpack item required. Data persists across sessions.
- *
  * Slot layout:
- *   [0 .. GRID_SLOTS-1]          grid inventory  (10×12 = 120)
- *   [GRID_SLOTS .. +3]           pockets         (4 fixed slots)
- *   [GRID_SLOTS+4 .. +6]         pouch           (3 fixed slots)
- *   [GRID_SLOTS+7 .. +33]        player main inv (3×9 = 27)
- *   [GRID_SLOTS+34 .. +42]       hotbar          (9)
+ *   [0 .. GRID_SLOTS-1]      backpack grid (8×8 = 64)
+ *   [GRID_SLOTS .. +26]      player main inventory (3×9 = 27)
+ *   [GRID_SLOTS+27 .. +35]   hotbar (9 slots)
+ *
+ * Pocket slots 0-6 map directly to hotbar indices 2-8.
+ * Primary weapon is hotbar index 0, secondary is hotbar index 1.
+ * These are NOT separate menu slots — they live inside the hotbar range above.
  */
 public class TarkovInventoryMenu extends AbstractContainerMenu {
 
-    public static final int GRID_SLOTS    = GridInventory.TOTAL_CELLS; // 120
-    public static final int POCKETS_START = GRID_SLOTS;                // 120
-    public static final int POCKETS_COUNT = IPlayerEquipment.POCKETS_COUNT; // 4
-    public static final int POUCH_START   = POCKETS_START + POCKETS_COUNT;  // 124
-    public static final int POUCH_COUNT   = IPlayerEquipment.POUCH_COUNT;   // 3
-    public static final int PLAYER_START  = POUCH_START + POUCH_COUNT;      // 127
-    public static final int HOTBAR_START  = PLAYER_START + 27;              // 154
+    public static final int GRID_SLOTS    = GridInventory.TOTAL_CELLS; // 64
+    public static final int PLAYER_START  = GRID_SLOTS;                // 64
+    public static final int HOTBAR_START  = PLAYER_START + 27;         // 91
+
+    /** Number of pocket slots (backed by hotbar 2-8). */
+    public static final int POCKETS_COUNT = 7;
 
     private final GridInventory  gridInventory;
     private final IPlayerEquipment cap;
@@ -44,7 +42,6 @@ public class TarkovInventoryMenu extends AbstractContainerMenu {
         super(ModMenuTypes.TARKOV_INVENTORY.get(), windowId);
         this.playerInventory = playerInv;
 
-        // Load everything from the player capability
         this.cap = ModCapabilities.get(playerInv.player)
                 .orElseThrow(() -> new IllegalStateException("Player missing Tarkov capability"));
         this.gridInventory = cap.getGridInventory();
@@ -56,57 +53,32 @@ public class TarkovInventoryMenu extends AbstractContainerMenu {
             });
         }
 
-        // Pocket slots (backed by capability)
-        net.minecraft.world.SimpleContainer pocketsContainer =
-                new net.minecraft.world.SimpleContainer(POCKETS_COUNT);
-        for (int i = 0; i < POCKETS_COUNT; i++) {
-            pocketsContainer.setItem(i, cap.getPocketSlot(i));
-            int idx = i;
-            addSlot(new Slot(pocketsContainer, i, -1000, -1000) {
-                @Override public boolean mayPlace(@NotNull ItemStack s) { return true; }
-                @Override public void set(@NotNull ItemStack s) {
-                    super.set(s);
-                    cap.setPocketSlot(idx, s);
-                }
-            });
-        }
-
-        // Pouch slots (backed by capability)
-        net.minecraft.world.SimpleContainer pouchContainer =
-                new net.minecraft.world.SimpleContainer(POUCH_COUNT);
-        for (int i = 0; i < POUCH_COUNT; i++) {
-            pouchContainer.setItem(i, cap.getPouchSlot(i));
-            int idx = i;
-            addSlot(new Slot(pouchContainer, i, -1000, -1000) {
-                @Override public boolean mayPlace(@NotNull ItemStack s) { return true; }
-                @Override public void set(@NotNull ItemStack s) {
-                    super.set(s);
-                    cap.setPouchSlot(idx, s);
-                }
-            });
-        }
-
-        // Player main inventory (rows 0-2)
+        // Player main inventory (rows 0-2, indices 9-35)
         for (int row = 0; row < 3; row++)
             for (int col = 0; col < 9; col++)
                 addSlot(new Slot(playerInv, col + row * 9 + 9, 0, 0));
 
-        // Hotbar
+        // Hotbar (indices 0-8) — pockets 0-6 live at indices 2-8 here
         for (int col = 0; col < 9; col++)
             addSlot(new Slot(playerInv, col, 0, 0));
     }
 
     // ---------------------------------------------------------------
-    // Public accessors (used by the screen)
+    // Public accessors — pockets are hotbar 2-8
     // ---------------------------------------------------------------
 
     public GridInventory getGridInventory() { return gridInventory; }
 
-    public ItemStack getPocketSlot(int i)  { return cap.getPocketSlot(i); }
-    public ItemStack getPouchSlot(int i)   { return cap.getPouchSlot(i); }
+    /** Pocket slot i corresponds to hotbar slot i+2 (hotbar keys 3–9). */
+    public ItemStack getPocketSlot(int i) {
+        if (i < 0 || i >= POCKETS_COUNT) return ItemStack.EMPTY;
+        return playerInventory.getItem(i + 2);
+    }
 
-    public void setPocketSlot(int i, ItemStack s) { cap.setPocketSlot(i, s); }
-    public void setPouchSlot(int i, ItemStack s)  { cap.setPouchSlot(i, s); }
+    public void setPocketSlot(int i, ItemStack s) {
+        if (i < 0 || i >= POCKETS_COUNT) return;
+        playerInventory.setItem(i + 2, s == null ? ItemStack.EMPTY : s);
+    }
 
     /** Place stack into the backpack grid. Returns leftover. */
     public ItemStack placeInGrid(ItemStack stack, int col, int row, GridSize size) {
@@ -147,9 +119,6 @@ public class TarkovInventoryMenu extends AbstractContainerMenu {
         if (index < GRID_SLOTS) {
             if (!moveItemStackTo(stack, PLAYER_START, HOTBAR_START + 9, false)) return ItemStack.EMPTY;
             gridInventory.removeItem(index);
-        } else if (index < PLAYER_START) {
-            if (!moveItemStackTo(stack, PLAYER_START, HOTBAR_START + 9, false)) return ItemStack.EMPTY;
-            slot.set(ItemStack.EMPTY);
         } else {
             ItemStack single = stack.copyWithCount(1);
             int placed = gridInventory.autoPlace(single);
