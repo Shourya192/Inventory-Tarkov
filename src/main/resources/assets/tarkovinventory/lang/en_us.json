@@ -15,5 +15,8 @@
   "tarkovinventory.slot.scabbard": "SCABBARD",
   "tarkovinventory.slot.pockets": "POCKETS",
   "tarkovinventory.slot.backpack": "BACKPACK",
-  "tarkovinventory.slot.pouch": "POUCH"
+  "tarkovinventory.slot.pouch": "POUCH",
+
+  "key.tarkovinventory.open": "Open Tarkov Inventory",
+  "key.categories.tarkovinventory": "Tarkov Inventory"
 }
