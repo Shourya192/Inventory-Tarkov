@@ -172,6 +172,18 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     /** Ordered list of nearby corpse positions (nearest first). Rebuilt each frame. */
     private List<BlockPos>   nearbyCorpseList   = List.of();
 
+    // ── Loot-panel drag-and-drop state ────────────────────────────────
+    /** True while the player is dragging an item out of the loot panel. */
+    private boolean   lootDragging      = false;
+    /** Copy of the item being dragged, for rendering. */
+    private ItemStack lootDragStack     = ItemStack.EMPTY;
+    /** Corpse the drag originated from. */
+    private BlockPos  lootDragCorpsePos = null;
+    /** Index into {@link #buildLootRows} of the row being dragged. */
+    private int       lootDragSourceRow = -1;
+    /** Mouse position at drag start (used to detect click vs drag). */
+    private double    lootDragStartX    = 0, lootDragStartY = 0;
+
     // ── Loot-panel row model ──────────────────────────────────────────
     private static final int LOOT_ROW_H = 18;
     private static final int LOOT_SEP_H = 10;
@@ -610,13 +622,31 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     // ── Drag overlay ──────────────────────────────────────────────────
 
     private void renderDragging(@NotNull GuiGraphics gfx, int mx, int my) {
-        if (dragging.isEmpty()) return;
-        int pw = draggingSize.width() * CELL - 1, ph = draggingSize.height() * CELL - 1;
-        int px = mx - dragOffX, py = my - dragOffY;
-        gfx.fill(px, py, px + pw, py + ph, C_ITEM_BG);
-        drawBorder(gfx, px, py, pw, ph, C_ITEM_BORDER);
-        gfx.renderItem(dragging, px + (pw - 16) / 2, py + (ph - 16) / 2);
-        gfx.renderItemDecorations(font, dragging, px + (pw - 16) / 2, py + (ph - 16) / 2);
+        // Internal backpack-grid drag
+        if (!dragging.isEmpty()) {
+            int pw = draggingSize.width() * CELL - 1, ph = draggingSize.height() * CELL - 1;
+            int px = mx - dragOffX, py = my - dragOffY;
+            gfx.fill(px, py, px + pw, py + ph, C_ITEM_BG);
+            drawBorder(gfx, px, py, pw, ph, C_ITEM_BORDER);
+            gfx.renderItem(dragging, px + (pw - 16) / 2, py + (ph - 16) / 2);
+            gfx.renderItemDecorations(font, dragging, px + (pw - 16) / 2, py + (ph - 16) / 2);
+        }
+
+        // Loot-panel drag: item follows cursor
+        if (lootDragging && !lootDragStack.isEmpty()) {
+            // Highlight the drop-target panel when hovering over it
+            boolean overLoot = mx >= viciX() && mx < viciX() + VICI_PANEL_W;
+            if (!overLoot) {
+                // Faint green glow over left+middle panels to signal "drop here"
+                gfx.fill(charX(), panelY(), viciX(), panelY() + VICI_PANEL_H, 0x1800FF00);
+            }
+            // Draw the item centred on the cursor
+            int ix = mx - 8, iy = my - 8;
+            gfx.fill(ix - 1, iy - 1, ix + 17, iy + 17, C_ITEM_BG);
+            drawBorder(gfx, ix - 1, iy - 1, 18, 18, C_ITEM_BORDER);
+            gfx.renderItem(lootDragStack, ix, iy);
+            gfx.renderItemDecorations(font, lootDragStack, ix, iy);
+        }
     }
 
     // ── Tooltip ───────────────────────────────────────────────────────
@@ -761,6 +791,8 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         lootHoveredRow = -1;
         ItemStack tooltipStack = ItemStack.EMPTY;
         int cursor = listTop - lootScroll;
+        // Suppress hover highlights while the player is actively dragging an item out
+        boolean suppressHover = lootDragging;
 
         for (int ri = 0; ri < rows.size(); ri++) {
             LootRow row = rows.get(ri);
@@ -780,7 +812,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 // ── Equipment row (maroon tint) ───────────────────────
                 int bg = (ri & 1) == 0 ? 0xFF180A0A : 0xFF200D0D;
                 gfx.fill(ox, rowY, ox + rowW, rowY + rowH, bg);
-                boolean hov = mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + rowH;
+                boolean hov = !suppressHover && mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + rowH;
                 if (hov) { gfx.fill(ox, rowY, ox + rowW, rowY + rowH, C_LOOT_HOVER);
                            lootHoveredRow = ri; tooltipStack = equip.stack(); }
 
@@ -803,7 +835,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             } else if (row instanceof LootInvRow inv) {
                 // ── Inventory row ─────────────────────────────────────
                 if ((ri & 1) == 0) gfx.fill(ox, rowY, ox + rowW, rowY + rowH, C_VICI_ROW_ODD);
-                boolean hov = mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + rowH;
+                boolean hov = !suppressHover && mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + rowH;
                 if (hov) { gfx.fill(ox, rowY, ox + rowW, rowY + rowH, C_LOOT_HOVER);
                            lootHoveredRow = ri; tooltipStack = inv.stack(); }
 
@@ -962,12 +994,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                     List<LootRow> rows = buildLootRows(corpse);
                     if (lootHoveredRow < rows.size()) {
                         LootRow row = rows.get(lootHoveredRow);
-                        if (row instanceof LootEquipRow equip) {
-                            ModNetwork.CHANNEL.sendToServer(
-                                    C2STakeFromCorpsePacket.namedSlot(selectedCorpsePos, equip.key()));
-                        } else if (row instanceof LootInvRow inv) {
-                            ModNetwork.CHANNEL.sendToServer(
-                                    C2STakeFromCorpsePacket.inventorySlot(selectedCorpsePos, inv.idx()));
+                        ItemStack dragStack = ItemStack.EMPTY;
+                        if (row instanceof LootEquipRow equip) dragStack = equip.stack();
+                        else if (row instanceof LootInvRow inv)  dragStack = inv.stack();
+                        if (!dragStack.isEmpty()) {
+                            lootDragging      = true;
+                            lootDragStack     = dragStack.copy();
+                            lootDragCorpsePos = selectedCorpsePos;
+                            lootDragSourceRow = lootHoveredRow;
+                            lootDragStartX    = mx;
+                            lootDragStartY    = my;
                         }
                     }
                 }
@@ -1021,6 +1057,45 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             return true;
         }
         return super.mouseScrolled(mx, my, delta);
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        if (button == 0 && lootDragging) {
+            // Snapshot and clear drag state immediately
+            boolean wasDragging   = lootDragging;
+            BlockPos  corpsePos   = lootDragCorpsePos;
+            int       sourceRow   = lootDragSourceRow;
+            double    startX      = lootDragStartX;
+            double    startY      = lootDragStartY;
+            lootDragging      = false;
+            lootDragStack     = ItemStack.EMPTY;
+            lootDragCorpsePos = null;
+            lootDragSourceRow = -1;
+
+            if (!wasDragging || corpsePos == null) return true;
+            CorpseClientCache.CorpseEntry corpse = CorpseClientCache.all().get(corpsePos);
+            if (corpse == null) return true;
+            List<LootRow> rows = buildLootRows(corpse);
+            if (sourceRow >= rows.size()) return true;
+            LootRow row = rows.get(sourceRow);
+
+            boolean isSmallMove = Math.abs(mx - startX) < 5 && Math.abs(my - startY) < 5;
+            boolean overLootPanel = mx >= viciX() && mx < viciX() + VICI_PANEL_W;
+
+            // Send the packet if: tiny click OR dragged onto the character/container panels
+            if (isSmallMove || !overLootPanel) {
+                if (row instanceof LootEquipRow equip)
+                    ModNetwork.CHANNEL.sendToServer(
+                            C2STakeFromCorpsePacket.namedSlot(corpsePos, equip.key()));
+                else if (row instanceof LootInvRow inv)
+                    ModNetwork.CHANNEL.sendToServer(
+                            C2STakeFromCorpsePacket.inventorySlot(corpsePos, inv.idx()));
+            }
+            // Released back in loot panel → drag cancelled, item stays in corpse
+            return true;
+        }
+        return super.mouseReleased(mx, my, button);
     }
 
     private boolean handleGridClick(int col, int row, int mx, int my, int button) {
