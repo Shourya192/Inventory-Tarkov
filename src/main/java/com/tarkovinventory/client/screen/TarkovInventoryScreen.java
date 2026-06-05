@@ -566,7 +566,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private IItemHandler getRigItemHandler() {
         ItemStack rig = getEquippedRigItem();
         if (rig.isEmpty()) return null;
-        return rig.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
+        // BackpackCompat tries the IItemHandler capability first, then falls
+        // back to NBT reading for mods like Modern Mayhem that store their
+        // inventory in NBT without exposing it as a capability.
+        return com.tarkovinventory.compat.BackpackCompat.asItemHandler(rig);
     }
 
     /**
