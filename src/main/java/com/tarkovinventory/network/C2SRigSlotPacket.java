@@ -1,12 +1,12 @@
 package com.tarkovinventory.network;
 
+import com.tarkovinventory.compat.BackpackCompat;
 import com.tarkovinventory.compat.CuriosCompat;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
@@ -54,18 +54,16 @@ public class C2SRigSlotPacket {
             if (rig.isEmpty()) rig = player.getItemBySlot(EquipmentSlot.CHEST);
             if (rig.isEmpty()) return;
 
-            final ItemStack rigRef = rig;
-            rig.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
-                if (msg.slotIndex < 0 || msg.slotIndex >= handler.getSlots()) return;
-                int limit = handler.getSlotLimit(msg.slotIndex);
-                ItemStack taken = handler.extractItem(msg.slotIndex, limit, false);
-                if (taken.isEmpty()) return;
-
+            // BackpackCompat.extractFromRig: tries IItemHandler capability first,
+            // then falls back to NBT read→extract→write for mods like Modern Mayhem
+            // that store their inventory in item NBT without a Forge capability.
+            ItemStack taken = BackpackCompat.extractFromRig(rig, msg.slotIndex);
+            if (!taken.isEmpty()) {
                 // Re-set rig in its parent slot so Forge/Curios detect the NBT change and sync
                 if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-                    CuriosCompat.setSlot(player, "body", 0, rigRef);
+                    CuriosCompat.setSlot(player, "body", 0, rig);
                 } else {
-                    player.setItemSlot(EquipmentSlot.CHEST, rigRef);
+                    player.setItemSlot(EquipmentSlot.CHEST, rig);
                 }
 
                 // Give item to player inventory or drop at feet
@@ -73,7 +71,7 @@ public class C2SRigSlotPacket {
                     player.level().addFreshEntity(new ItemEntity(
                             player.level(), player.getX(), player.getY(), player.getZ(), taken));
                 }
-            });
+            }
         });
         ctx.get().setPacketHandled(true);
     }
