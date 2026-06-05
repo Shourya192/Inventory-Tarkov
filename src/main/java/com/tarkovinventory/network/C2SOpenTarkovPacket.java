@@ -4,14 +4,18 @@ import com.tarkovinventory.container.TarkovInventoryMenu;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkHooks;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Supplier;
 
 /**
- * Sent from client → server when the player presses the Tarkov inventory key.
- * The server responds by opening the TarkovInventoryMenu for that player.
+ * Sent client → server when the player presses the Tarkov inventory key.
  */
 public class C2SOpenTarkovPacket {
 
@@ -27,22 +31,19 @@ public class C2SOpenTarkovPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
-            // Don't open if another screen is already open server-side
-            NetworkHooks.openScreen(player,
-                    new net.minecraft.world.MenuProvider() {
-                        @Override
-                        public Component getDisplayName() {
-                            return Component.literal("Tarkov Inventory");
-                        }
 
-                        @Override
-                        public net.minecraft.world.inventory.AbstractContainerMenu createMenu(
-                                int windowId,
-                                net.minecraft.world.entity.player.Inventory inv,
-                                net.minecraft.world.entity.player.Player p) {
-                            return new TarkovInventoryMenu(windowId, inv);
-                        }
-                    });
+            NetworkHooks.openScreen(player, new MenuProvider() {
+                @Override
+                public @NotNull Component getDisplayName() {
+                    return Component.literal("Tarkov Inventory");
+                }
+
+                @Override
+                public @NotNull AbstractContainerMenu createMenu(
+                        int windowId, @NotNull Inventory inv, @NotNull Player p) {
+                    return new TarkovInventoryMenu(windowId, inv, 0);
+                }
+            }, buf -> buf.writeInt(0)); // write hand=0 so the menu type factory can readInt()
         });
         ctx.get().setPacketHandled(true);
     }
