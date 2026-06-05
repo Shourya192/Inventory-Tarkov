@@ -69,7 +69,8 @@ public class C2SOpenTarkovPacket {
                     ModNetwork.CHANNEL.send(
                             PacketDistributor.PLAYER.with(() -> player),
                             new S2CCorpseContentsPacket(
-                                    pos.immutable(), be.getOwnerName(), be.getItems()));
+                                    pos.immutable(), be.getOwnerName(),
+                                    be.getSlottedItems(), be.getInventoryItems()));
                 }
             }
         });
