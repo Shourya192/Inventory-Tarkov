@@ -34,5 +34,15 @@ public final class ModNetwork {
                 C2SLootAllPacket::encode,
                 C2SLootAllPacket::decode,
                 C2SLootAllPacket::handle);
+        CHANNEL.registerMessage(id++,
+                C2STakeFromCorpsePacket.class,
+                C2STakeFromCorpsePacket::encode,
+                C2STakeFromCorpsePacket::decode,
+                C2STakeFromCorpsePacket::handle);
+        CHANNEL.registerMessage(id++,
+                S2CCorpseContentsPacket.class,
+                S2CCorpseContentsPacket::encode,
+                S2CCorpseContentsPacket::decode,
+                S2CCorpseContentsPacket::handle);
     }
 }
