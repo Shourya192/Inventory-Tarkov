@@ -23,8 +23,8 @@ import org.jetbrains.annotations.NotNull;
  */
 public class GridInventory extends SimpleContainer {
 
-    public static final int COLS = 10;
-    public static final int ROWS = 12;
+    public static final int COLS = 8;
+    public static final int ROWS = 8;
     public static final int TOTAL_CELLS = COLS * ROWS;
 
     /** gridX stored per slot index (anchor column). */
