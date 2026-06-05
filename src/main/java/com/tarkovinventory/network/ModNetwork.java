@@ -44,5 +44,10 @@ public final class ModNetwork {
                 S2CCorpseContentsPacket::encode,
                 S2CCorpseContentsPacket::decode,
                 S2CCorpseContentsPacket::handle);
+        CHANNEL.registerMessage(id++,
+                C2SRigSlotPacket.class,
+                C2SRigSlotPacket::encode,
+                C2SRigSlotPacket::decode,
+                C2SRigSlotPacket::handle);
     }
 }
