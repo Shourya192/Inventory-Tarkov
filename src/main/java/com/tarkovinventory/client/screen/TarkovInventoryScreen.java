@@ -12,8 +12,11 @@ import com.tarkovinventory.inventory.GridSize;
 import com.tarkovinventory.client.CorpseClientCache;
 import com.tarkovinventory.network.C2SLootAllPacket;
 import com.tarkovinventory.network.C2SPickupItemPacket;
+import com.tarkovinventory.network.C2SRigSlotPacket;
 import com.tarkovinventory.network.C2STakeFromCorpsePacket;
 import com.tarkovinventory.network.ModNetwork;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
@@ -150,6 +153,15 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private int hoverGridCol = -1, hoverGridRow = -1;
     private int tooltipSlot  = -1;
 
+    // ── Rig slots ─────────────────────────────────────────────────────
+    /** Pixel height consumed by the rig section this frame (0 = no rig). */
+    private int  rigSectionH     = 0;
+    /** Which rig slot the cursor is over (-1 = none). */
+    private int  rigHoveredSlot  = -1;
+    /** Which source the hovered rig came from (SRC_CURIOS / SRC_ARMOR). */
+    private byte rigHoveredSource = -1;
+    private static final int  RIG_CELL   = 18; // px per rig-slot cell (incl. 1-px gap)
+
     // ── Curios ───────────────────────────────────────────────────────
     private List<CuriosCompat.CuriosSlotEntry> curiosSlots = new ArrayList<>();
 
@@ -268,7 +280,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private int panelY()      { return topPos  + PAD; }
     private int contX()       { return leftPos + PAD + CHAR_PANEL_W + PAD; }
     private int gridOriginX() { return contX() + 2; }
-    private int gridOriginY() { return panelY() + 68; }
+    private int gridOriginY() { return panelY() + 68 + rigSectionH; }
     private int viciX()       { return contX() + CONT_PANEL_W + PAD; }
 
     private int toGridCol(double px) {
@@ -489,7 +501,8 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         drawBorder(gfx, ox, oy, CONT_PANEL_W, CONT_PANEL_H, C_BORDER);
 
         renderPocketsSection(gfx, ox + 2, oy + 2, mx, my);
-        renderBackpackSection(gfx, ox + 2, oy + 42, mx, my);
+        rigSectionH = renderRigSection(gfx, ox + 2, oy + 42, mx, my);
+        renderBackpackSection(gfx, ox + 2, oy + 42 + rigSectionH, mx, my);
     }
 
     private void renderPocketsSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
@@ -517,6 +530,101 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         return ModCapabilities.get(minecraft.player)
                 .map(cap -> !cap.getSlot(IPlayerEquipment.SLOT_ON_BACK).isEmpty())
                 .orElse(false);
+    }
+
+    // ── Rig helpers ───────────────────────────────────────────────────
+
+    /** Returns the item currently equipped as a rig (curios "body" slot). */
+    private ItemStack getEquippedRigItem() {
+        Player p = minecraft.player;
+        if (p == null) return ItemStack.EMPTY;
+        if (CuriosCompat.isLoaded()) {
+            ItemStack s = CuriosCompat.getSlotItem(p, "body", 0);
+            if (!s.isEmpty()) return s;
+        }
+        // Vanilla chest armor as fallback
+        return p.getItemBySlot(EquipmentSlot.CHEST);
+    }
+
+    private byte getEquippedRigSource() {
+        if (CuriosCompat.isLoaded()) {
+            Player p = minecraft.player;
+            if (p != null && !CuriosCompat.getSlotItem(p, "body", 0).isEmpty())
+                return C2SRigSlotPacket.SRC_CURIOS;
+        }
+        return C2SRigSlotPacket.SRC_ARMOR;
+    }
+
+    private IItemHandler getRigItemHandler() {
+        ItemStack rig = getEquippedRigItem();
+        if (rig.isEmpty()) return null;
+        return rig.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
+    }
+
+    /**
+     * Renders the rig slots section and returns the pixel height consumed
+     * (0 if no rig with an IItemHandler is equipped).
+     * Also updates {@link #rigHoveredSlot} and {@link #rigHoveredSource}.
+     */
+    private int renderRigSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
+        rigHoveredSlot  = -1;
+        rigHoveredSource = -1;
+
+        IItemHandler handler = getRigItemHandler();
+        if (handler == null || handler.getSlots() == 0) return 0;
+
+        byte src  = getEquippedRigSource();
+        int slots = handler.getSlots();
+        int maxW  = CONT_PANEL_W - 4;
+        int cols  = Math.min(slots, maxW / RIG_CELL);
+        if (cols == 0) cols = 1;
+        int rows = (int) Math.ceil((double) slots / cols);
+
+        // Section label
+        ItemStack rigItem = getEquippedRigItem();
+        String label = "RIG  [" + rigItem.getHoverName().getString() + "]";
+        gfx.drawString(font, label, ox, oy, C_TEXT_TITLE, false);
+        // Thin separator under the label
+        gfx.fill(ox, oy + 9, ox + maxW, oy + 10, C_BORDER);
+
+        for (int i = 0; i < slots; i++) {
+            int col = i % cols;
+            int row = i / cols;
+            int sx  = ox + col * RIG_CELL;
+            int sy  = oy + 10 + row * RIG_CELL;
+            int sw  = RIG_CELL - 1, sh = RIG_CELL - 1;
+
+            ItemStack s = handler.getStackInSlot(i);
+            boolean hov = !s.isEmpty()
+                    && mx >= sx && mx < sx + sw && my >= sy && my < sy + sh;
+
+            gfx.fill(sx, sy, sx + sw, sy + sh, s.isEmpty() ? C_GRID_EMPTY : C_ITEM_BG);
+            drawBorder(gfx, sx, sy, sw, sh, hov ? C_ITEM_BORDER : C_GRID_LINE);
+
+            if (!s.isEmpty()) {
+                // Render 16×16 icon centred in the cell
+                gfx.renderItem(s, sx + 1, sy + 1);
+                if (s.getCount() > 1) {
+                    String cnt = String.valueOf(s.getCount());
+                    gfx.drawString(font, cnt,
+                            sx + sw - font.width(cnt), sy + sh - 7, 0xFFFFFFFF, true);
+                }
+            }
+
+            if (hov) { rigHoveredSlot = i; rigHoveredSource = src; }
+        }
+
+        return 10 + rows * RIG_CELL + 3; // title + grid + small gap below
+    }
+
+    private boolean handleRigSlotClick(int mx, int my, int button) {
+        if (rigHoveredSlot < 0 || button != 0) return false;
+        IItemHandler handler = getRigItemHandler();
+        if (handler == null || rigHoveredSlot >= handler.getSlots()) return false;
+        if (handler.getStackInSlot(rigHoveredSlot).isEmpty()) return true; // consumed, no-op
+        ModNetwork.CHANNEL.sendToServer(
+                new C2SRigSlotPacket(rigHoveredSlot, rigHoveredSource));
+        return true;
     }
 
     private void renderBackpackSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
@@ -685,6 +793,20 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 else gfx.renderTooltip(font,
                     Component.literal("POCKET " + (i + 1) + " (hotbar " + (i + 3) + ")"), mx, my);
                 return;
+            }
+        }
+
+        // Rig slot tooltip
+        if (rigHoveredSlot >= 0) {
+            IItemHandler handler = getRigItemHandler();
+            if (handler != null && rigHoveredSlot < handler.getSlots()) {
+                ItemStack s = handler.getStackInSlot(rigHoveredSlot);
+                if (!s.isEmpty()) {
+                    gfx.renderTooltip(font, s, mx, my);
+                } else {
+                    gfx.renderTooltip(font,
+                            Component.literal("RIG SLOT " + (rigHoveredSlot + 1)), mx, my);
+                }
             }
         }
     }
@@ -1021,9 +1143,11 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             return true;
         }
 
+        if (handleRigSlotClick((int) mx, (int) my, button)) return true;
+
         if (hasBackpackEquipped()) {
             int sbBaseX = contX() + 2 + font.width("BACKPACK") + 6;
-            int sbBaseY = panelY() + 42;
+            int sbBaseY = panelY() + 42 + rigSectionH;
             int sbW     = CONT_PANEL_W - (sbBaseX - contX()) - 4;
             if (mx >= sbBaseX && mx < sbBaseX + sbW && my >= sbBaseY && my < sbBaseY + 10) {
                 searchActive = !searchActive;
