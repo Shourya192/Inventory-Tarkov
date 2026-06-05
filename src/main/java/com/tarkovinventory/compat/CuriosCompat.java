@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Soft compatibility with Curios API.
@@ -191,6 +193,21 @@ public final class CuriosCompat {
             stacks.getClass().getMethod("setStackInSlot", int.class, ItemStack.class)
                 .invoke(stacks, index, stack);
         } catch (Throwable ignored) {}
+    }
+
+    /**
+     * Returns the set of curios slot-type IDs that exist on this player,
+     * regardless of whether those slots currently hold an item.
+     * Used by the screen to decide whether to write to curios vs. vanilla fallback.
+     */
+    public static Set<String> getAllSlotIds(Player player) {
+        Object handler = getHandler(player);
+        if (handler == null) return Set.of();
+        try {
+            Map<?, ?> curios = (Map<?, ?>) handler.getClass().getMethod("getCurios").invoke(handler);
+            return curios.keySet().stream().map(Object::toString).collect(Collectors.toSet());
+        } catch (Throwable ignored) {}
+        return Set.of();
     }
 
     /** Returns a human-readable label for a Curios slot id. */
