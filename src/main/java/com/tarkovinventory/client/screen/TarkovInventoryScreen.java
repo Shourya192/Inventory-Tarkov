@@ -5,6 +5,7 @@ import com.tarkovinventory.capability.ModCapabilities;
 import com.tarkovinventory.compat.BackpackCompat;
 import com.tarkovinventory.compat.CuriosCompat;
 import com.tarkovinventory.container.TarkovInventoryMenu;
+import com.tarkovinventory.inventory.BackpackSizes;
 import com.tarkovinventory.inventory.GridInventory;
 import com.tarkovinventory.inventory.GridItemSizes;
 import com.tarkovinventory.inventory.GridSize;
@@ -43,11 +44,12 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private static final int TOTAL_H       = PAD + CHAR_PANEL_H + PAD;
 
     // ── Grid ─────────────────────────────────────────────────────────
-    private static final int CELL      = 17;
-    private static final int GRID_COLS = GridInventory.COLS;
-    private static final int GRID_ROWS = GridInventory.ROWS;
-    private static final int GRID_W    = GRID_COLS * CELL;
-    private static final int GRID_H    = GRID_ROWS * CELL;
+    private static final int CELL = 17;
+    // Active grid dims — recomputed every render() based on the equipped backpack
+    private int currentGridCols = BackpackSizes.DEFAULT_COLS;
+    private int currentGridRows = BackpackSizes.DEFAULT_ROWS;
+    private int currentGridW()  { return currentGridCols * CELL; }
+    private int currentGridH()  { return currentGridRows * CELL; }
 
     // ── Small-slot size ───────────────────────────────────────────────
     private static final int SS = 26;
@@ -140,11 +142,11 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     private int toGridCol(double px) {
         int rel = (int) px - gridOriginX();
-        return (rel >= 0 && rel < GRID_W) ? rel / CELL : -1;
+        return (rel >= 0 && rel < currentGridW()) ? rel / CELL : -1;
     }
     private int toGridRow(double py) {
         int rel = (int) py - gridOriginY();
-        return (rel >= 0 && rel < GRID_H) ? rel / CELL : -1;
+        return (rel >= 0 && rel < currentGridH()) ? rel / CELL : -1;
     }
 
     // ================================================================
@@ -199,14 +201,33 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     @Override
     public void render(@NotNull GuiGraphics gfx, int mx, int my, float pt) {
-        // Refresh Curios every frame so live changes (equip/unequip in vanilla inv) show immediately
+        // Refresh Curios every frame so live changes appear immediately
         refreshCuriosSlots();
+        // Recompute active grid size from the currently equipped backpack
+        ItemStack equippedBp = getEquippedBackpack();
+        currentGridCols = BackpackSizes.getCols(equippedBp);
+        currentGridRows = BackpackSizes.getRows(equippedBp);
+        menu.getGridInventory().setActiveDimensions(currentGridCols, currentGridRows);
+
         renderBackground(gfx);
         renderBg(gfx, pt, mx, my);
         renderCharacterPanel(gfx, mx, my);
         renderContainersPanel(gfx, mx, my);
         renderDragging(gfx, mx, my);
         renderHoveredTooltip(gfx, mx, my);
+    }
+
+    /** Returns the item currently in the ON BACK / Curios "back" slot, or EMPTY. */
+    private ItemStack getEquippedBackpack() {
+        if (minecraft == null || minecraft.player == null) return ItemStack.EMPTY;
+        if (CuriosCompat.isLoaded()) {
+            for (CuriosCompat.CuriosSlotEntry e : curiosSlots)
+                if ("back".equals(e.slotId()) && e.index() == 0 && !e.stack().isEmpty())
+                    return e.stack();
+        }
+        return ModCapabilities.get(minecraft.player)
+                .map(cap -> cap.getSlot(IPlayerEquipment.SLOT_ON_BACK))
+                .orElse(ItemStack.EMPTY);
     }
 
     @Override
@@ -371,21 +392,22 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private void renderGrid(@NotNull GuiGraphics gfx, int mx, int my) {
         GridInventory inv = menu.getGridInventory();
         int ox = gridOriginX(), oy = gridOriginY();
+        int gw = currentGridW(), gh = currentGridH();
         hoverGridCol = toGridCol(mx);
         hoverGridRow = toGridRow(my);
         tooltipSlot  = -1;
 
-        gfx.fill(ox, oy, ox + GRID_W, oy + GRID_H, C_GRID_EMPTY);
-        for (int col = 1; col < GRID_COLS; col++) {
+        gfx.fill(ox, oy, ox + gw, oy + gh, C_GRID_EMPTY);
+        for (int col = 1; col < currentGridCols; col++) {
             int lx = ox + col * CELL - 1;
-            gfx.fill(lx, oy, lx + 1, oy + GRID_H, C_GRID_LINE);
+            gfx.fill(lx, oy, lx + 1, oy + gh, C_GRID_LINE);
         }
-        for (int row = 1; row < GRID_ROWS; row++) {
+        for (int row = 1; row < currentGridRows; row++) {
             int ly = oy + row * CELL - 1;
-            gfx.fill(ox, ly, ox + GRID_W, ly + 1, C_GRID_LINE);
+            gfx.fill(ox, ly, ox + gw, ly + 1, C_GRID_LINE);
         }
 
-        for (int i = 0; i < GridInventory.TOTAL_CELLS; i++) {
+        for (int i = 0; i < GridInventory.MAX_CELLS; i++) {
             ItemStack stack = inv.getItem(i);
             if (stack.isEmpty()) continue;
 
@@ -429,6 +451,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                      ox + hoverGridCol * CELL + pw, oy + hoverGridRow * CELL + ph,
                      fits ? C_DRAG_VALID : C_DRAG_INVALID);
         }
+
+        // Grid dimension label (e.g. "8×8") shown in top-right corner of grid
+        String dimLabel = currentGridCols + "×" + currentGridRows;
+        gfx.drawString(font, dimLabel, ox + gw - font.width(dimLabel), oy - 9, C_TEXT_LABEL, false);
     }
 
     // ── Drag overlay ──────────────────────────────────────────────────
