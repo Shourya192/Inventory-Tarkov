@@ -9,11 +9,14 @@ import com.tarkovinventory.inventory.BackpackSizes;
 import com.tarkovinventory.inventory.GridInventory;
 import com.tarkovinventory.inventory.GridItemSizes;
 import com.tarkovinventory.inventory.GridSize;
+import com.tarkovinventory.client.CorpseClientCache;
 import com.tarkovinventory.network.C2SLootAllPacket;
 import com.tarkovinventory.network.C2SPickupItemPacket;
+import com.tarkovinventory.network.C2STakeFromCorpsePacket;
 import com.tarkovinventory.network.ModNetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -26,6 +29,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Full Tarkov-style character inventory screen.
@@ -140,6 +144,15 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private boolean lootAllHovered  = false;
     /** Cached per-frame list — rebuilt at the start of every render call. */
     private List<ItemEntity> vicinityItems = new ArrayList<>();
+    /** Flat unified row list (ground items + corpse headers + corpse items). */
+    private List<ViciEntry> viciRows = List.of();
+
+    // ── Vicinity row types ────────────────────────────────────────────
+    private interface ViciEntry {}
+    private record ViciGround(ItemEntity entity) implements ViciEntry {}
+    private record ViciCorpseHeader(BlockPos pos, String ownerName,
+                                    int itemCount, double dist) implements ViciEntry {}
+    private record ViciCorpseItem(BlockPos pos, int slot, ItemStack stack) implements ViciEntry {}
 
     // ─────────────────────────────────────────────────────────────────
 
@@ -548,105 +561,148 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     // ── Vicinity panel ────────────────────────────────────────────────
 
+    /** Builds the flat unified row list: ground items first, then each nearby corpse. */
+    private List<ViciEntry> buildViciRows() {
+        List<ViciEntry> rows = new ArrayList<>();
+
+        for (ItemEntity e : vicinityItems) rows.add(new ViciGround(e));
+
+        if (minecraft != null && minecraft.player != null) {
+            for (Map.Entry<BlockPos, CorpseClientCache.CorpseEntry> entry : CorpseClientCache.all().entrySet()) {
+                BlockPos pos = entry.getKey();
+                CorpseClientCache.CorpseEntry corpse = entry.getValue();
+                if (corpse.items().isEmpty()) continue;
+                double dist = Math.sqrt(pos.distSqr(minecraft.player.blockPosition()));
+                rows.add(new ViciCorpseHeader(pos, corpse.ownerName(), corpse.items().size(), dist));
+                List<ItemStack> cItems = corpse.items();
+                for (int s = 0; s < cItems.size(); s++) rows.add(new ViciCorpseItem(pos, s, cItems.get(s)));
+            }
+        }
+        return rows;
+    }
+
     private void renderVicinityPanel(@NotNull GuiGraphics gfx, int mx, int my) {
         int ox = viciX(), oy = panelY();
+
+        // Build unified row list (used by click handler too)
+        viciRows = buildViciRows();
 
         // Panel background + border
         gfx.fill(ox, oy, ox + VICI_PANEL_W, oy + VICI_PANEL_H, C_BG_PANEL);
         drawBorder(gfx, ox, oy, VICI_PANEL_W, VICI_PANEL_H, C_BORDER);
 
-        // ── Header ───────────────────────────────────────────────────
+        // ── Title header ─────────────────────────────────────────────
         gfx.fill(ox, oy, ox + VICI_PANEL_W, oy + VICI_HEADER_H, C_VICI_HEADER);
         gfx.drawString(font, "VICINITY", ox + 4, oy + 4, C_TEXT_TITLE, false);
 
-        // Item count badge
-        String badge = vicinityItems.size() + " item" + (vicinityItems.size() == 1 ? "" : "s");
+        // Total ground-item count badge
+        long groundCount = viciRows.stream().filter(r -> r instanceof ViciGround).count();
+        String badge = groundCount + " on ground";
         gfx.drawString(font, badge, ox + 4, oy + VICI_HEADER_H + 2, C_TEXT_LABEL, false);
 
-        // "LOOT ALL" button in top-right corner of header
-        int btnW  = 44, btnH = 10;
-        int btnX  = ox + VICI_PANEL_W - btnW - 3;
-        int btnY  = oy + 4;
+        // "LOOT ALL" button (picks up all ground items)
+        int btnW = 44, btnH = 10;
+        int btnX = ox + VICI_PANEL_W - btnW - 3;
+        int btnY = oy + 4;
         lootAllHovered = mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
         gfx.fill(btnX, btnY, btnX + btnW, btnY + btnH, lootAllHovered ? C_VICI_BTN_HOV : C_VICI_BTN);
         drawBorder(gfx, btnX, btnY, btnW, btnH, C_BORDER);
         gfx.drawString(font, "LOOT ALL", btnX + 2, btnY + 1, C_TEXT_WHITE, false);
 
-        // ── Item list ─────────────────────────────────────────────────
+        // ── Scrollable list ───────────────────────────────────────────
         int contentYTop = oy + VICI_HEADER_H + 12;
         int contentH    = VICI_PANEL_H - VICI_HEADER_H - 12;
+        int totalRows   = viciRows.size();
+        int totalH      = totalRows * VICI_ROW_H;
 
-        // Scrollbar rail + thumb
-        boolean needsScroll = vicinityItems.size() * VICI_ROW_H > contentH;
+        boolean needsScroll = totalH > contentH;
         int scrollbarX = ox + VICI_PANEL_W - 5;
         int scrollbarW = 4;
         if (needsScroll) {
-            int totalH   = vicinityItems.size() * VICI_ROW_H;
             int maxScroll = Math.max(0, totalH - contentH);
             vicinityScroll = Math.min(vicinityScroll, maxScroll);
-
             gfx.fill(scrollbarX, contentYTop, scrollbarX + scrollbarW,
                      contentYTop + contentH, C_SCROLLBAR_BG);
-            int thumbH  = Math.max(12, contentH * contentH / totalH);
-            int thumbY  = contentYTop + (int)((long) vicinityScroll * (contentH - thumbH) / maxScroll);
+            int thumbH = Math.max(12, contentH * contentH / totalH);
+            int thumbY = contentYTop + (int)((long) vicinityScroll * (contentH - thumbH) / maxScroll);
             gfx.fill(scrollbarX, thumbY, scrollbarX + scrollbarW,
                      thumbY + thumbH, C_SCROLLBAR_FG);
         } else {
             vicinityScroll = 0;
         }
 
-        // Scissor to the content area so items don't bleed outside
         int listW = VICI_PANEL_W - (needsScroll ? scrollbarW + 1 : 1);
         gfx.enableScissor(ox, contentYTop, ox + listW, contentYTop + contentH);
 
         hoveredVicinityIdx = -1;
-        for (int i = 0; i < vicinityItems.size(); i++) {
-            ItemEntity entity = vicinityItems.get(i);
-            ItemStack  stack  = entity.getItem();
+        ItemStack tooltipStack = ItemStack.EMPTY;
 
+        for (int i = 0; i < viciRows.size(); i++) {
+            ViciEntry entry = viciRows.get(i);
             int rowY = contentYTop + i * VICI_ROW_H - vicinityScroll;
             if (rowY + VICI_ROW_H <= contentYTop) continue;
             if (rowY >= contentYTop + contentH)   break;
 
-            // Zebra stripe
-            if ((i & 1) == 1) gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_ROW_ODD);
-
-            // Hover highlight
             boolean rowHov = mx >= ox && mx < ox + listW && my >= rowY && my < rowY + VICI_ROW_H;
-            if (rowHov) { gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_HOVER); hoveredVicinityIdx = i; }
+            if (rowHov) hoveredVicinityIdx = i;
 
-            // Icon
-            gfx.renderItem(stack, ox + 2, rowY + 2);
-            gfx.renderItemDecorations(font, stack, ox + 2, rowY + 2);
+            if (entry instanceof ViciGround g) {
+                ItemStack stack = g.entity().getItem();
+                if ((i & 1) == 1) gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_ROW_ODD);
+                if (rowHov) { gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_HOVER); tooltipStack = stack; }
 
-            // Distance string
-            double dist = 0;
-            if (minecraft != null && minecraft.player != null)
-                dist = entity.distanceTo(minecraft.player);
-            String distStr = String.format("%.1fm", dist);
-            int    distX   = ox + listW - font.width(distStr) - 3;
-            gfx.drawString(font, distStr, distX, rowY + 6, C_VICI_DIST, false);
+                gfx.renderItem(stack, ox + 2, rowY + 2);
+                gfx.renderItemDecorations(font, stack, ox + 2, rowY + 2);
 
-            // Name (truncated to fit between icon and distance)
-            int nameMaxW = distX - (ox + 20) - 2;
-            String name  = stack.getHoverName().getString();
-            while (name.length() > 1 && font.width(name) > nameMaxW)
-                name = name.substring(0, name.length() - 1);
-            if (font.width(stack.getHoverName().getString()) > nameMaxW) name += "…";
-            gfx.drawString(font, name, ox + 20, rowY + 6, C_TEXT_WHITE, false);
+                double dist = minecraft.player == null ? 0 : g.entity().distanceTo(minecraft.player);
+                String distStr = String.format("%.1fm", dist);
+                int distX = ox + listW - font.width(distStr) - 3;
+                gfx.drawString(font, distStr, distX, rowY + 6, C_VICI_DIST, false);
+
+                int nameMaxW = distX - (ox + 20) - 2;
+                String name = stack.getHoverName().getString();
+                while (name.length() > 1 && font.width(name) > nameMaxW)
+                    name = name.substring(0, name.length() - 1);
+                if (font.width(stack.getHoverName().getString()) > nameMaxW) name += "…";
+                gfx.drawString(font, name, ox + 20, rowY + 6, C_TEXT_WHITE, false);
+
+            } else if (entry instanceof ViciCorpseHeader h) {
+                // Dark header row for the corpse
+                gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_HEADER);
+                if (rowHov) gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_HOVER);
+
+                String distStr  = String.format("%.1fm", h.dist());
+                String headline = "\u2620 " + h.ownerName() + " (" + h.itemCount() + ")";
+                gfx.drawString(font, headline, ox + 3, rowY + 6, 0xFFDD6655, false);
+                gfx.drawString(font, distStr, ox + listW - font.width(distStr) - 3, rowY + 6, C_VICI_DIST, false);
+
+            } else if (entry instanceof ViciCorpseItem ci) {
+                if ((i & 1) == 1) gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_ROW_ODD);
+                if (rowHov) { gfx.fill(ox, rowY, ox + listW, rowY + VICI_ROW_H, C_VICI_HOVER); tooltipStack = ci.stack(); }
+
+                // Indented slightly to show hierarchy under the corpse header
+                gfx.renderItem(ci.stack(), ox + 8, rowY + 2);
+                gfx.renderItemDecorations(font, ci.stack(), ox + 8, rowY + 2);
+
+                int nameMaxW = listW - 28;
+                String name = ci.stack().getHoverName().getString();
+                while (name.length() > 1 && font.width(name) > nameMaxW)
+                    name = name.substring(0, name.length() - 1);
+                if (font.width(ci.stack().getHoverName().getString()) > nameMaxW) name += "…";
+                gfx.drawString(font, name, ox + 26, rowY + 6, 0xFFCCBBAA, false);
+            }
         }
 
         gfx.disableScissor();
 
-        // Empty-state label
-        if (vicinityItems.isEmpty()) {
+        // Empty-state
+        if (viciRows.isEmpty()) {
             gfx.drawString(font, "Nothing nearby", ox + 14, contentYTop + 10, C_TEXT_LABEL, false);
         }
 
-        // Tooltip for hovered item row
-        if (hoveredVicinityIdx >= 0 && hoveredVicinityIdx < vicinityItems.size()) {
-            ItemStack hs = vicinityItems.get(hoveredVicinityIdx).getItem();
-            gfx.renderTooltip(font, hs, mx, my);
+        // Tooltip
+        if (!tooltipStack.isEmpty()) {
+            gfx.renderTooltip(font, tooltipStack, mx, my);
         }
     }
 
@@ -658,18 +714,23 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     public boolean mouseClicked(double mx, double my, int button) {
         // ── Vicinity panel clicks ──────────────────────────────────────
         if (button == 0 && mx >= viciX() && mx < viciX() + VICI_PANEL_W) {
-            // LOOT ALL button
+            // LOOT ALL button — picks up every ground ItemEntity
             if (lootAllHovered && !vicinityItems.isEmpty()) {
                 ModNetwork.CHANNEL.sendToServer(new C2SLootAllPacket());
                 return true;
             }
-            // Individual item pickup
-            if (hoveredVicinityIdx >= 0 && hoveredVicinityIdx < vicinityItems.size()) {
-                ModNetwork.CHANNEL.sendToServer(
-                    new C2SPickupItemPacket(vicinityItems.get(hoveredVicinityIdx).getId()));
-                return true;
+            // Row click — dispatch based on type
+            if (hoveredVicinityIdx >= 0 && hoveredVicinityIdx < viciRows.size()) {
+                ViciEntry entry = viciRows.get(hoveredVicinityIdx);
+                if (entry instanceof ViciGround g) {
+                    ModNetwork.CHANNEL.sendToServer(new C2SPickupItemPacket(g.entity().getId()));
+                } else if (entry instanceof ViciCorpseHeader h) {
+                    ModNetwork.CHANNEL.sendToServer(new C2STakeFromCorpsePacket(h.pos(), -1));
+                } else if (entry instanceof ViciCorpseItem ci) {
+                    ModNetwork.CHANNEL.sendToServer(new C2STakeFromCorpsePacket(ci.pos(), ci.slot()));
+                }
             }
-            return true; // consume click even on empty panel area
+            return true; // always consume clicks inside the panel
         }
 
         if (hasBackpackEquipped()) {
