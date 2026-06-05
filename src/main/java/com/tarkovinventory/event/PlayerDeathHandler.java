@@ -24,10 +24,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * cancels the vanilla item-scatter.
  *
  * Two-phase approach:
- *   1. LivingDeathEvent (HIGHEST) — capture equipment + curios slots while
- *      the player object still has its inventory.
- *   2. LivingDropsEvent (HIGH)    — cancel the vanilla drops; use the captured
- *      data plus the drop list to build the structured corpse.
+ *   1. LivingDeathEvent (HIGHEST) — capture EVERYTHING while the player is
+ *      still fully alive: armor, offhand, curios, AND main inventory.
+ *      This is the only safe point; by LivingDropsEvent the inventory is gone.
+ *   2. LivingDropsEvent (HIGH)    — cancel the vanilla drops; use the
+ *      pre-captured data to build the structured corpse block.
  */
 @Mod.EventBusSubscriber(modid = TarkovInventoryMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PlayerDeathHandler {
@@ -37,8 +38,10 @@ public class PlayerDeathHandler {
     /** Temporary storage keyed by player UUID between the two event phases. */
     private static final ConcurrentHashMap<UUID, Map<String, ItemStack>> PENDING_SLOTTED =
             new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, List<ItemStack>> PENDING_INVENTORY =
+            new ConcurrentHashMap<>();
 
-    // ── Phase 1: capture equipment while the player still has it ───────
+    // ── Phase 1: capture everything while the player still has it ──────
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingDeath(LivingDeathEvent event) {
@@ -46,20 +49,28 @@ public class PlayerDeathHandler {
 
         Map<String, ItemStack> slotted = new LinkedHashMap<>();
 
-        // Vanilla armor slots
+        // Vanilla armor + offhand (still intact at HIGHEST priority)
         addSlotted(slotted, "armor.head",  player.getItemBySlot(EquipmentSlot.HEAD));
         addSlotted(slotted, "armor.chest", player.getItemBySlot(EquipmentSlot.CHEST));
         addSlotted(slotted, "armor.legs",  player.getItemBySlot(EquipmentSlot.LEGS));
         addSlotted(slotted, "armor.feet",  player.getItemBySlot(EquipmentSlot.FEET));
         addSlotted(slotted, "offhand",     player.getItemBySlot(EquipmentSlot.OFFHAND));
 
-        // Curios slots (soft-dep, no-ops if Curios is absent)
+        // Curios slots (soft-dep; no-ops if Curios is absent)
         for (CuriosCompat.CuriosSlotEntry e : CuriosCompat.getEquippedSlots(player)) {
             if (!e.stack().isEmpty())
                 slotted.put("curios." + e.slotId(), e.stack().copy());
         }
 
         PENDING_SLOTTED.put(player.getUUID(), slotted);
+
+        // Main inventory: capture NOW while it's still intact.
+        // By the time LivingDropsEvent fires, vanilla has already cleared these.
+        List<ItemStack> inventory = new ArrayList<>();
+        for (ItemStack s : player.getInventory().items) {         // 36 slots (hotbar + main)
+            if (!s.isEmpty()) inventory.add(s.copy());
+        }
+        PENDING_INVENTORY.put(player.getUUID(), inventory);
     }
 
     // ── Phase 2: cancel drops and build the corpse block ──────────────
@@ -69,29 +80,14 @@ public class PlayerDeathHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!(player.level() instanceof ServerLevel level)) return;
 
-        Map<String, ItemStack> slotted = PENDING_SLOTTED.remove(player.getUUID());
-        if (slotted == null) slotted = new LinkedHashMap<>();
-
-        // Main inventory (36 slots, already distinct from armor/offhand)
-        List<ItemStack> inventory = new ArrayList<>();
-        for (ItemStack s : player.getInventory().items) {
-            if (!s.isEmpty()) inventory.add(s.copy());
-        }
-        // Also include anything extra in the drop list not already covered
-        // (mod-injected drops, XP bottles, etc.)
-        Set<String> slottedValues = new HashSet<>();
-        for (ItemStack s : slotted.values())
-            slottedValues.add(s.getDescriptionId() + s.getCount());
-        for (var ie : event.getDrops()) {
-            ItemStack s = ie.getItem();
-            if (s.isEmpty()) continue;
-            String key = s.getDescriptionId() + s.getCount();
-            if (!slottedValues.contains(key)) inventory.add(s.copy());
-        }
+        Map<String, ItemStack> slotted   = PENDING_SLOTTED.remove(player.getUUID());
+        List<ItemStack>        inventory = PENDING_INVENTORY.remove(player.getUUID());
+        if (slotted   == null) slotted   = new LinkedHashMap<>();
+        if (inventory == null) inventory = new ArrayList<>();
 
         if (slotted.isEmpty() && inventory.isEmpty()) return;
 
-        // Find a valid placement spot
+        // Find a valid placement spot (prefer the player's feet block, then up)
         BlockPos pos = player.blockPosition();
         for (int dy = 0; dy <= 2; dy++) {
             BlockPos c = pos.above(dy);
@@ -107,6 +103,7 @@ public class PlayerDeathHandler {
             be.setInventoryItems(inventory);
         }
 
+        // Cancel vanilla item-scatter so nothing hits the ground
         event.setCanceled(true);
     }
 
