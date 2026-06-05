@@ -19,7 +19,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.1.1'
+
+      - name: Cache Forge dependencies
         uses: actions/cache@v4
         with:
           path: |
@@ -29,11 +34,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
       - name: Build JAR
-        run: ./gradlew build --no-daemon
+        run: gradle build --no-daemon
         env:
           JAVA_TOOL_OPTIONS: "-Xmx3g"
 
