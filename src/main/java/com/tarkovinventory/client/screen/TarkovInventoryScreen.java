@@ -612,8 +612,9 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             int sw  = RIG_CELL - 1, sh = RIG_CELL - 1;
 
             ItemStack s = handler.getStackInSlot(i);
-            boolean hov = !s.isEmpty()
-                    && mx >= sx && mx < sx + sw && my >= sy && my < sy + sh;
+            boolean hov =
+        mx >= sx && mx < sx + sw
+        && my >= sy && my < sy + sh;
 
             gfx.fill(sx, sy, sx + sw, sy + sh, s.isEmpty() ? C_GRID_EMPTY : C_ITEM_BG);
             drawBorder(gfx, sx, sy, sw, sh, hov ? C_ITEM_BORDER : C_GRID_LINE);
