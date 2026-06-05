@@ -30,30 +30,33 @@ public final class TarkovCommand {
     private TarkovCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        // /ti                        — open inventory screen
-        // /ti backpack               — give yourself a Tactical Backpack item
-        // /ti curiosinfo             — print all Curios slot IDs + current items to chat
-        // /ti gridinfo               — show equipped backpack ID and active grid size
-        // /ti setsize <cols> <rows>  — register equipped backpack at given size (session only)
-        var root = Commands.literal("ti")
-            .executes(ctx -> openInventory(ctx.getSource()))
-            .then(Commands.literal("backpack")
-                .executes(ctx -> giveBackpack(ctx.getSource())))
-            .then(Commands.literal("curiosinfo")
-                .executes(ctx -> printCuriosInfo(ctx.getSource())))
-            .then(Commands.literal("gridinfo")
-                .executes(ctx -> printGridInfo(ctx.getSource())))
-            .then(Commands.literal("setsize")
-                .then(Commands.argument("cols", IntegerArgumentType.integer(1, GridInventory.MAX_COLS))
-                    .then(Commands.argument("rows", IntegerArgumentType.integer(1, GridInventory.MAX_ROWS))
-                        .executes(ctx -> setBackpackSize(ctx.getSource(),
-                            IntegerArgumentType.getInteger(ctx, "cols"),
-                            IntegerArgumentType.getInteger(ctx, "rows"))))));
-
-        dispatcher.register(root);
-        // Also register under the full name
-        dispatcher.register(Commands.literal("tarkovinventory").redirect(
-            dispatcher.getRoot().getChild("ti")));
+        // Subcommands:
+        //   /ti                        — open inventory screen
+        //   /ti backpack               — give yourself a Tactical Backpack item
+        //   /ti curiosinfo             — list Curios slot IDs + items
+        //   /ti gridinfo               — show equipped backpack ID and active grid size
+        //   /ti setsize <cols> <rows>  — set grid size for equipped backpack (session only)
+        //
+        // Registered under both "ti" and "tarkovinventory" explicitly (no redirect,
+        // which is unreliable in Forge 1.20.1 and can break the whole tree).
+        for (String alias : new String[]{"ti", "tarkovinventory"}) {
+            dispatcher.register(
+                Commands.literal(alias)
+                    .executes(ctx -> openInventory(ctx.getSource()))
+                    .then(Commands.literal("backpack")
+                        .executes(ctx -> giveBackpack(ctx.getSource())))
+                    .then(Commands.literal("curiosinfo")
+                        .executes(ctx -> printCuriosInfo(ctx.getSource())))
+                    .then(Commands.literal("gridinfo")
+                        .executes(ctx -> printGridInfo(ctx.getSource())))
+                    .then(Commands.literal("setsize")
+                        .then(Commands.argument("cols", IntegerArgumentType.integer(1, GridInventory.MAX_COLS))
+                            .then(Commands.argument("rows", IntegerArgumentType.integer(1, GridInventory.MAX_ROWS))
+                                .executes(ctx -> setBackpackSize(ctx.getSource(),
+                                    IntegerArgumentType.getInteger(ctx, "cols"),
+                                    IntegerArgumentType.getInteger(ctx, "rows"))))))
+            );
+        }
     }
 
     private static int openInventory(CommandSourceStack source) {
@@ -179,28 +182,27 @@ public final class TarkovCommand {
                 return 1;
             }
 
-            var regKey = ForgeRegistries.ITEMS.getKey(backpack.getItem());
-            String itemId = regKey != null ? regKey.toString() : "unknown";
-            int cols = BackpackSizes.getCols(backpack);
-            int rows = BackpackSizes.getRows(backpack);
-            boolean isRegistered = cols != BackpackSizes.DEFAULT_COLS || rows != BackpackSizes.DEFAULT_ROWS;
+            String itemId      = BackpackSizes.getItemId(backpack);
+            int    cols        = BackpackSizes.getCols(backpack);
+            int    rows        = BackpackSizes.getRows(backpack);
+            boolean registered = BackpackSizes.isRegistered(backpack);
 
             player.displayClientMessage(
                 Component.literal("§7Item ID: §f" + itemId), false);
             player.displayClientMessage(
-                Component.literal("§7Display name: §f" + backpack.getHoverName().getString()), false);
+                Component.literal("§7Name: §f" + backpack.getHoverName().getString()), false);
             player.displayClientMessage(
-                Component.literal("§7Active grid: §a" + cols + "§7×§a" + rows
-                    + (isRegistered ? " §7(registered)" : " §e(default — not in BackpackSizes.java)")),
+                Component.literal("§7Grid: §a" + cols + "§7×§a" + rows
+                    + (registered ? " §7(in BackpackSizes registry)" : " §e(using default 6×6 — not registered)")),
                 false);
 
-            if (!isRegistered) {
+            if (!registered) {
                 player.displayClientMessage(
-                    Component.literal("§7To permanently set a size, add this to BackpackSizes.java:"), false);
+                    Component.literal("§7Test a size now:  §f/ti setsize <cols> <rows>"), false);
                 player.displayClientMessage(
-                    Component.literal("§f  register(\"" + itemId + "\", " + cols + ", " + rows + ");"), false);
+                    Component.literal("§7To make it permanent, add to BackpackSizes.java:"), false);
                 player.displayClientMessage(
-                    Component.literal("§7Or test it now: §f/ti setsize <cols> <rows>"), false);
+                    Component.literal("§f  register(\"" + itemId + "\", cols, rows);"), false);
             }
 
         } catch (Exception e) {
@@ -228,9 +230,8 @@ public final class TarkovCommand {
                 return 0;
             }
 
-            var regKey = ForgeRegistries.ITEMS.getKey(backpack.getItem());
-            String itemId = regKey != null ? regKey.toString() : null;
-            if (itemId == null) {
+            String itemId = BackpackSizes.getItemId(backpack);
+            if (itemId.equals("unknown")) {
                 player.displayClientMessage(
                     Component.literal("§cCouldn't get an item ID for that backpack."), false);
                 return 0;
