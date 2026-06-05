@@ -634,26 +634,46 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         return 10 + rows * RIG_CELL + 3; // title + grid + small gap below
     }
 
-    private boolean handleRigSlotClick(int mx, int my, int button) {
-        if (rigHoveredSlot < 0 || button != 0) return false;
-        IItemHandler handler = getRigItemHandler();
-        if (handler == null || rigHoveredSlot >= handler.getSlots()) return false;
-        if (handler.getStackInSlot(rigHoveredSlot).isEmpty()) return true; // consumed, no-op
+private boolean handleRigSlotClick(int mx, int my, int button) {
+    if (rigHoveredSlot < 0 || button != 0) return false;
 
-        // Optimistic client-side update: immediately clear the slot in the
-        // client's copy of the rig NBT so the slot renders empty on the very
-        // next frame, without waiting for the server's Curios sync (~1 tick).
-        // The server confirms and actually moves the item; Curios then re-syncs
-        // the (already-correct) rig to the client a moment later.
-        ItemStack clientRig = getEquippedRigItem();
-        if (!clientRig.isEmpty()) {
-            com.tarkovinventory.compat.BackpackCompat.extractFromRig(clientRig, rigHoveredSlot);
+    IItemHandler handler = getRigItemHandler();
+    if (handler == null || rigHoveredSlot >= handler.getSlots()) return false;
+
+    // PLACE ITEM INTO RIG
+    if (!dragging.isEmpty()) {
+        ItemStack existing = handler.getStackInSlot(rigHoveredSlot);
+
+        if (existing.isEmpty()) {
+            ItemStack copy = dragging.copy();
+            copy.setCount(1);
+
+            handler.insertItem(rigHoveredSlot, copy, false);
+
+            dragging.shrink(1);
+            if (dragging.isEmpty())
+                dragging = ItemStack.EMPTY;
+
+            return true;
         }
 
-        ModNetwork.CHANNEL.sendToServer(
-                new C2SRigSlotPacket(rigHoveredSlot, rigHoveredSource));
         return true;
     }
+
+    // TAKE ITEM FROM RIG
+    if (handler.getStackInSlot(rigHoveredSlot).isEmpty())
+        return true;
+
+    ItemStack clientRig = getEquippedRigItem();
+    if (!clientRig.isEmpty()) {
+        BackpackCompat.extractFromRig(clientRig, rigHoveredSlot);
+    }
+
+    ModNetwork.CHANNEL.sendToServer(
+            new C2SRigSlotPacket(rigHoveredSlot, rigHoveredSource));
+
+    return true;
+}
 
     private void renderBackpackSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
         gfx.drawString(font, "BACKPACK", ox, oy, C_TEXT_TITLE, false);
