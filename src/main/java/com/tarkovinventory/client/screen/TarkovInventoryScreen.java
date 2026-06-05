@@ -297,16 +297,37 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             renderSmallSlot(gfx, ox + i * (SS + 3), oy + 10, SS, SS, menu.getPocketSlot(i), C_SLOT_EMPTY, C_SLOT_BORDER, mx, my);
     }
 
-    private void renderBackpackSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
-        // Check if holding a Tactical Backpack item — show status next to label
-        boolean hasBackpack = minecraft.player != null &&
-                (minecraft.player.getMainHandItem().getItem() instanceof com.tarkovinventory.item.TarkovBackpackItem ||
-                 minecraft.player.getOffhandItem().getItem() instanceof com.tarkovinventory.item.TarkovBackpackItem);
-        gfx.drawString(font, "BACKPACK", ox, oy, C_TEXT_TITLE, false);
-        gfx.drawString(font, hasBackpack ? "§a[equipped]" : "§7[no item needed — storage is always yours]",
-                ox + font.width("BACKPACK") + 4, oy, 0xFFAAAAAA, false);
+    private boolean hasBackpackEquipped() {
+        if (minecraft.player == null) return false;
+        return ModCapabilities.get(minecraft.player)
+                .map(cap -> cap.getSlot(IPlayerEquipment.SLOT_ON_BACK).getItem()
+                            instanceof com.tarkovinventory.item.TarkovBackpackItem)
+                .orElse(false);
+    }
 
-        // Search bar
+    private void renderBackpackSection(@NotNull GuiGraphics gfx, int ox, int oy, int mx, int my) {
+        gfx.drawString(font, "BACKPACK", ox, oy, C_TEXT_TITLE, false);
+
+        int areaX = ox, areaY = oy + 10;
+        int areaW = CONT_PANEL_W - 4, areaH = CONT_PANEL_H - 44 - 10 - areaY + panelY() + 42;
+
+        if (!hasBackpackEquipped()) {
+            // No backpack in ON BACK slot — show locked placeholder
+            int midX = areaX + areaW / 2, midY = areaY + areaH / 2;
+            gfx.fill(areaX, areaY, areaX + areaW, areaY + areaH, 0xFF161616);
+            drawBorder(gfx, areaX, areaY, areaW, areaH, 0xFF2A2A2A);
+            // Draw big cross
+            gfx.fill(midX - 12, midY - 2, midX + 12, midY + 2, 0xFF2A2A2A);
+            gfx.fill(midX - 2, midY - 12, midX + 2, midY + 12, 0xFF2A2A2A);
+            String msg1 = "NO BACKPACK";
+            String msg2 = "Equip one in ON BACK slot";
+            gfx.drawString(font, msg1, midX - font.width(msg1) / 2, midY + 16, 0xFF555555, false);
+            gfx.drawString(font, msg2, midX - font.width(msg2) / 2, midY + 26, 0xFF444444, false);
+            hoverGridCol = -1; hoverGridRow = -1; tooltipSlot = -1;
+            return;
+        }
+
+        // Backpack equipped — show search bar + grid
         int sbX = ox + font.width("BACKPACK") + 6;
         int sbW = CONT_PANEL_W - (sbX - contX()) - 4;
         gfx.fill(sbX, oy, sbX + sbW, oy + 10, searchActive ? C_SEARCH_BG : 0xFF1A1A1A);
@@ -515,20 +536,21 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // Search bar toggle
-        int sbBaseX = contX() + 2 + font.width("BACKPACK") + 6;
-        int sbBaseY = panelY() + 42;
-        int sbW     = CONT_PANEL_W - (sbBaseX - contX()) - 4;
-        if (mx >= sbBaseX && mx < sbBaseX + sbW && my >= sbBaseY && my < sbBaseY + 10) {
-            searchActive = !searchActive;
-            if (!searchActive) searchText = "";
-            return true;
-        }
+        // Grid + search bar — only active when backpack is equipped
+        if (hasBackpackEquipped()) {
+            int sbBaseX = contX() + 2 + font.width("BACKPACK") + 6;
+            int sbBaseY = panelY() + 42;
+            int sbW     = CONT_PANEL_W - (sbBaseX - contX()) - 4;
+            if (mx >= sbBaseX && mx < sbBaseX + sbW && my >= sbBaseY && my < sbBaseY + 10) {
+                searchActive = !searchActive;
+                if (!searchActive) searchText = "";
+                return true;
+            }
 
-        // Grid
-        int col = toGridCol(mx), row = toGridRow(my);
-        if (col >= 0 && row >= 0) {
-            return handleGridClick(col, row, (int) mx, (int) my, button);
+            int col = toGridCol(mx), row = toGridRow(my);
+            if (col >= 0 && row >= 0) {
+                return handleGridClick(col, row, (int) mx, (int) my, button);
+            }
         }
 
         if (handleEqSlotClick((int) mx, (int) my, button))   return true;
