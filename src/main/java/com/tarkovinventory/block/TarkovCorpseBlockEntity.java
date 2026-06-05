@@ -11,106 +11,122 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
- * Stores the full inventory of the player who died here.
- *
- * <p>Minecraft automatically syncs this entity to nearby clients via
- * {@link #getUpdatePacket()} and {@link #getUpdateTag()}, so the client
- * can read it directly from {@code level.getBlockEntity(pos)}.
+ * Stores the inventory of a player who died, split into:
+ *   slottedItems   — equipment/curios slots keyed by slot-id (e.g. "armor.head", "curios.back")
+ *   inventoryItems — remaining main-inventory stacks (flat list)
  */
 public class TarkovCorpseBlockEntity extends BlockEntity {
 
-    private List<ItemStack> items     = new ArrayList<>();
-    private String          ownerName = "Unknown";
+    private Map<String, ItemStack> slottedItems  = new LinkedHashMap<>();
+    private List<ItemStack>        inventoryItems = new ArrayList<>();
+    private String                 ownerName      = "Unknown";
 
     public TarkovCorpseBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.TARKOV_CORPSE.get(), pos, state);
     }
 
-    // ── Data access ──────────────────────────────────────────────────
+    // ── Accessors ────────────────────────────────────────────────────
 
-    public List<ItemStack> getItems()      { return items; }
-    public String          getOwnerName()  { return ownerName; }
+    public String                 getOwnerName()     { return ownerName; }
+    public Map<String, ItemStack> getSlottedItems()  { return Collections.unmodifiableMap(slottedItems); }
+    public List<ItemStack>        getInventoryItems() { return Collections.unmodifiableList(inventoryItems); }
 
-    public void setOwnerName(String name) {
-        this.ownerName = name;
+    public boolean isEmpty() { return slottedItems.isEmpty() && inventoryItems.isEmpty(); }
+
+    public void setOwnerName(String name)  { ownerName = name; setChanged(); }
+
+    public void setSlottedItems(Map<String, ItemStack> items) {
+        slottedItems = new LinkedHashMap<>();
+        items.forEach((k, v) -> { if (!v.isEmpty()) slottedItems.put(k, v.copy()); });
         setChanged();
     }
 
-    public void setItems(List<ItemStack> stacks) {
-        this.items = new ArrayList<>();
-        for (ItemStack s : stacks) if (!s.isEmpty()) this.items.add(s.copy());
+    public void setInventoryItems(List<ItemStack> stacks) {
+        inventoryItems = new ArrayList<>();
+        for (ItemStack s : stacks) if (!s.isEmpty()) inventoryItems.add(s.copy());
         setChanged();
     }
 
-    public boolean isEmpty() { return items.isEmpty(); }
+    // ── Item removal ──────────────────────────────────────────────────
 
-    /**
-     * Removes and returns the item at {@code slot}, or {@link ItemStack#EMPTY}.
-     * Caller is responsible for giving the stack to the player.
-     */
-    public ItemStack takeItem(int slot) {
-        if (slot < 0 || slot >= items.size()) return ItemStack.EMPTY;
-        ItemStack result = items.remove(slot);
-        setChanged();
-        return result;
+    /** Remove and return item from a named equipment slot. */
+    public ItemStack takeSlottedItem(String key) {
+        ItemStack s = slottedItems.remove(key);
+        if (s != null) { setChanged(); return s; }
+        return ItemStack.EMPTY;
     }
 
-    /**
-     * Drains the entire contents and returns them as a snapshot list.
-     */
+    /** Remove and return item from main-inventory by index. */
+    public ItemStack takeInventoryItem(int slot) {
+        if (slot < 0 || slot >= inventoryItems.size()) return ItemStack.EMPTY;
+        ItemStack s = inventoryItems.remove(slot);
+        setChanged();
+        return s;
+    }
+
+    /** Drain everything and return a flat list. */
     public List<ItemStack> takeAll() {
-        List<ItemStack> snapshot = new ArrayList<>(items);
-        items.clear();
+        List<ItemStack> all = new ArrayList<>(slottedItems.values());
+        all.addAll(inventoryItems);
+        slottedItems.clear();
+        inventoryItems.clear();
         setChanged();
-        return snapshot;
+        return all;
     }
 
-    // ── NBT persistence ──────────────────────────────────────────────
+    // ── NBT ──────────────────────────────────────────────────────────
 
     @Override
     protected void saveAdditional(CompoundTag tag) {
         tag.putString("OwnerName", ownerName);
-        ListTag list = new ListTag();
-        for (ItemStack stack : items) {
-            CompoundTag stag = new CompoundTag();
-            stack.save(stag);
-            list.add(stag);
-        }
-        tag.put("Items", list);
+        CompoundTag st = new CompoundTag();
+        slottedItems.forEach((k, v) -> { CompoundTag ct = new CompoundTag(); v.save(ct); st.put(k, ct); });
+        tag.put("Slotted", st);
+        ListTag inv = new ListTag();
+        for (ItemStack s : inventoryItems) { CompoundTag ct = new CompoundTag(); s.save(ct); inv.add(ct); }
+        tag.put("Inventory", inv);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
         ownerName = tag.getString("OwnerName");
-        items = new ArrayList<>();
-        ListTag list = tag.getList("Items", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            ItemStack s = ItemStack.of(list.getCompound(i));
-            if (!s.isEmpty()) items.add(s);
+        slottedItems = new LinkedHashMap<>();
+        if (tag.contains("Slotted", Tag.TAG_COMPOUND)) {
+            CompoundTag st = tag.getCompound("Slotted");
+            for (String k : st.getAllKeys()) {
+                ItemStack s = ItemStack.of(st.getCompound(k));
+                if (!s.isEmpty()) slottedItems.put(k, s);
+            }
+        }
+        inventoryItems = new ArrayList<>();
+        ListTag inv = tag.getList("Inventory", Tag.TAG_COMPOUND);
+        for (int i = 0; i < inv.size(); i++) {
+            ItemStack s = ItemStack.of(inv.getCompound(i));
+            if (!s.isEmpty()) inventoryItems.add(s);
+        }
+        // Legacy: old flat "Items" tag (pre-redesign)
+        if (slottedItems.isEmpty() && inventoryItems.isEmpty() && tag.contains("Items", Tag.TAG_LIST)) {
+            ListTag legacy = tag.getList("Items", Tag.TAG_COMPOUND);
+            for (int i = 0; i < legacy.size(); i++) {
+                ItemStack s = ItemStack.of(legacy.getCompound(i));
+                if (!s.isEmpty()) inventoryItems.add(s);
+            }
         }
     }
 
     // ── Client sync ──────────────────────────────────────────────────
 
-    @Override
-    public CompoundTag getUpdateTag() {
-        CompoundTag tag = super.getUpdateTag();
-        saveAdditional(tag);
-        return tag;
+    @Override public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag(); saveAdditional(tag); return tag;
     }
-
-    @Override
-    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+    @Override public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
-
-    @Override
-    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
+    @Override public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
         if (pkt.getTag() != null) load(pkt.getTag());
     }
 }
