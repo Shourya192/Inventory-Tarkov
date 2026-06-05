@@ -138,14 +138,17 @@ public final class CuriosCompat {
     public static String labelFor(String slotId) {
         return switch (slotId) {
             case "head"     -> "HEADWEAR";
+            case "back"     -> "ON BACK";
+            case "body"     -> "BODY ARMOR";
+            case "earwear"  -> "EARWEAR";
+            case "facewear" -> "FACEWEAR";
+            case "knees"    -> "KNEES";
             case "face"     -> "FACE COVER";
             case "necklace" -> "NECKLACE";
             case "ring"     -> "RING";
             case "hands"    -> "GLOVES";
-            case "back"     -> "ON BACK";
             case "belt"     -> "BELT";
             case "charm"    -> "CHARM";
-            case "body"     -> "BODY ARMOR";
             default         -> slotId.toUpperCase();
         };
     }
