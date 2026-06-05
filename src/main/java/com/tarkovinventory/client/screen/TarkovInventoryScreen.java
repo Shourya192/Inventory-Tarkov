@@ -164,13 +164,67 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     /** Which corpse is open in the loot panel; null = ground/vicinity mode. */
     private BlockPos         selectedCorpsePos  = null;
     private int              lootScroll         = 0;
-    private int              lootHoveredSlot    = -1;
+    private int              lootHoveredRow     = -1;
     private boolean          lootExitHovered    = false;
     private boolean          lootTakeAllHovered = false;
     private boolean          lootNavLeftHov     = false;
     private boolean          lootNavRightHov    = false;
     /** Ordered list of nearby corpse positions (nearest first). Rebuilt each frame. */
     private List<BlockPos>   nearbyCorpseList   = List.of();
+
+    // ── Loot-panel row model ──────────────────────────────────────────
+    private static final int LOOT_ROW_H = 18;
+    private static final int LOOT_SEP_H = 10;
+    private sealed interface LootRow permits LootEquipRow, LootInvRow, LootSepRow {}
+    /** An equipment/curios slot (filled). Click = take by named slot key. */
+    private record LootEquipRow(String key, ItemStack stack) implements LootRow {}
+    /** A main-inventory item. Click = take by inventory index. */
+    private record LootInvRow(int idx, ItemStack stack) implements LootRow {}
+    /** Visual separator between equipment and inventory sections. */
+    private record LootSepRow(int invCount) implements LootRow {}
+
+    /** Ordered slot keys used to drive display order in the loot panel. */
+    private static final String[] EQUIP_SLOT_ORDER = {
+        "armor.head", "armor.chest", "armor.legs", "armor.feet", "offhand",
+        "curios.head", "curios.body", "curios.back",
+        "curios.earwear", "curios.facewear", "curios.knees"
+    };
+
+    private static String equipSlotLabel(String key) {
+        return switch (key) {
+            case "armor.head"     -> "HELMET";
+            case "armor.chest"    -> "ARMOR";
+            case "armor.legs"     -> "LEGS";
+            case "armor.feet"     -> "BOOTS";
+            case "offhand"        -> "OFFHAND";
+            case "curios.head"    -> "HEADGEAR";
+            case "curios.body"    -> "BODY";
+            case "curios.back"    -> "ON BACK";
+            case "curios.earwear" -> "EARWEAR";
+            case "curios.facewear"-> "FACEWEAR";
+            case "curios.knees"   -> "KNEES";
+            default -> key.toUpperCase();
+        };
+    }
+
+    /** Builds the unified scrollable row list from a corpse entry. */
+    private List<LootRow> buildLootRows(CorpseClientCache.CorpseEntry corpse) {
+        List<LootRow> rows = new ArrayList<>();
+        var slotted = corpse.slottedItems();
+        for (String key : EQUIP_SLOT_ORDER) {
+            ItemStack s = slotted.get(key);
+            if (s != null && !s.isEmpty()) rows.add(new LootEquipRow(key, s));
+        }
+        // Any extra slotted keys not in the standard order
+        slotted.forEach((k, v) -> {
+            if (!List.of(EQUIP_SLOT_ORDER).contains(k) && !v.isEmpty())
+                rows.add(new LootEquipRow(k, v));
+        });
+        rows.add(new LootSepRow(corpse.inventoryItems().size()));
+        var inv = corpse.inventoryItems();
+        for (int i = 0; i < inv.size(); i++) rows.add(new LootInvRow(i, inv.get(i)));
+        return rows;
+    }
 
     // ── Vicinity row types (ground mode only) ─────────────────────────
     private interface ViciEntry {}
@@ -625,12 +679,16 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     // ── LOOT MODE ─────────────────────────────────────────────────────
 
     /**
-     * Tarkov-style dedicated loot panel: shown when a corpse is selected.
+     * Character-screen style loot panel.
+     *
      * Layout (top → bottom):
-     *   Title bar (20px)  — "☠ Name" + EXIT button + corpse nav arrows
-     *   Sub-header (12px) — "N items" + "< 1/2 >" if multiple corpses
-     *   Scrollable item list
-     *   Footer (22px)     — TAKE ALL button
+     *   Title bar  (LOOT_TITLE_H=20px)  — "☠ Name's Corpse" + EXIT + nav arrows
+     *   Sub-header (LOOT_SUBHDR_H=12px) — item count + "< 1/2 >" if multiple corpses
+     *   Scrollable row list:
+     *     Equipment rows (LOOT_ROW_H=18px) — maroon bg, icon + name + slot label
+     *     Separator     (LOOT_SEP_H=10px)  — "─── INVENTORY (N) ───"
+     *     Inventory rows (LOOT_ROW_H=18px) — dark bg, icon + name + count
+     *   Footer (LOOT_FOOTER_H=22px) — TAKE ALL button
      */
     private void renderLootPanel(@NotNull GuiGraphics gfx, int mx, int my,
                                   CorpseClientCache.CorpseEntry corpse) {
@@ -641,13 +699,12 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         gfx.fill(ox, oy, ox + pw, oy + ph, C_BG_PANEL);
         drawBorder(gfx, ox, oy, pw, ph, C_BORDER);
 
-        // ── Title bar ─────────────────────────────────────────────────
+        // ── Title bar ──────────────────────────────────────────────────
         gfx.fill(ox, oy, ox + pw, oy + LOOT_TITLE_H, C_LOOT_HEADER);
-
         String title = "\u2620 " + corpse.ownerName() + "'s Corpse";
         gfx.drawString(font, title, ox + 4, oy + 6, C_LOOT_TITLE, false);
 
-        // EXIT button — top-right corner
+        // EXIT button (top-right)
         int exitW = 26, exitH = 12;
         int exitX = ox + pw - exitW - 3, exitY = oy + 4;
         lootExitHovered = mx >= exitX && mx < exitX + exitW && my >= exitY && my < exitY + exitH;
@@ -656,40 +713,37 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         drawBorder(gfx, exitX, exitY, exitW, exitH, C_BORDER);
         gfx.drawString(font, "EXIT", exitX + 4, exitY + 2, C_TEXT_WHITE, false);
 
-        // ── Sub-header ────────────────────────────────────────────────
+        // ── Sub-header ─────────────────────────────────────────────────
         int subY = oy + LOOT_TITLE_H;
         gfx.fill(ox, subY, ox + pw, subY + LOOT_SUBHDR_H, C_LOOT_SUBHDR);
+        int total = corpse.totalCount();
+        gfx.drawString(font, total + " item" + (total == 1 ? "" : "s"), ox + 4, subY + 2, C_TEXT_LABEL, false);
 
-        String cntLabel = corpse.items().size() + " item" + (corpse.items().size() == 1 ? "" : "s");
-        gfx.drawString(font, cntLabel, ox + 4, subY + 2, C_TEXT_LABEL, false);
-
-        // Navigation arrows (only when multiple corpses are nearby)
+        // Corpse navigation arrows (multiple corpses nearby)
         lootNavLeftHov = false; lootNavRightHov = false;
         if (nearbyCorpseList.size() > 1) {
-            int idx  = nearbyCorpseList.indexOf(selectedCorpsePos);
+            int idx = nearbyCorpseList.indexOf(selectedCorpsePos);
             String nav = "< " + (idx + 1) + "/" + nearbyCorpseList.size() + " >";
-            int navW   = font.width(nav) + 8;
-            int navX   = ox + pw / 2 - navW / 2;
-
-            int arrowW = 10, arrowH = LOOT_SUBHDR_H;
-            int leftX  = navX, rightX = navX + navW - arrowW;
-
-            lootNavLeftHov  = mx >= leftX  && mx < leftX  + arrowW && my >= subY && my < subY + arrowH;
-            lootNavRightHov = mx >= rightX && mx < rightX + arrowW && my >= subY && my < subY + arrowH;
-
-            gfx.fill(leftX,  subY, leftX  + arrowW, subY + arrowH,
-                     lootNavLeftHov  ? C_LOOT_NAV_H : C_LOOT_NAV);
-            gfx.fill(rightX, subY, rightX + arrowW, subY + arrowH,
-                     lootNavRightHov ? C_LOOT_NAV_H : C_LOOT_NAV);
+            int navW = font.width(nav) + 8, navX = ox + pw / 2 - navW / 2;
+            int arW = 10, arH = LOOT_SUBHDR_H;
+            int lX = navX, rX = navX + navW - arW;
+            lootNavLeftHov  = mx >= lX && mx < lX + arW && my >= subY && my < subY + arH;
+            lootNavRightHov = mx >= rX && mx < rX + arW && my >= subY && my < subY + arH;
+            gfx.fill(lX, subY, lX + arW, subY + arH, lootNavLeftHov  ? C_LOOT_NAV_H : C_LOOT_NAV);
+            gfx.fill(rX, subY, rX + arW, subY + arH, lootNavRightHov ? C_LOOT_NAV_H : C_LOOT_NAV);
             gfx.drawString(font, nav, navX + 1, subY + 2, C_TEXT_LABEL, false);
         }
 
-        // ── Item list ─────────────────────────────────────────────────
+        // ── Scrollable row list ────────────────────────────────────────
+        List<LootRow> rows = buildLootRows(corpse);
+
         int listTop = subY + LOOT_SUBHDR_H;
         int listBot = oy + ph - LOOT_FOOTER_H;
         int listH   = listBot - listTop;
-        List<ItemStack> items = corpse.items();
-        int totalH = items.size() * VICI_ROW_H;
+
+        // Compute total pixel height of all rows
+        int totalH = 0;
+        for (LootRow r : rows) totalH += (r instanceof LootSepRow) ? LOOT_SEP_H : LOOT_ROW_H;
 
         boolean needsBar = totalH > listH;
         int sbW = 4, sbX = ox + pw - sbW - 1;
@@ -697,66 +751,94 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
             int maxSc = Math.max(0, totalH - listH);
             lootScroll = Math.min(lootScroll, maxSc);
             gfx.fill(sbX, listTop, sbX + sbW, listBot, C_SCROLLBAR_BG);
-            int thumbH = Math.max(12, listH * listH / totalH);
+            int thumbH = Math.max(10, listH * listH / totalH);
             int thumbY = listTop + (int)((long) lootScroll * (listH - thumbH) / maxSc);
             gfx.fill(sbX, thumbY, sbX + sbW, thumbY + thumbH, C_SCROLLBAR_FG);
-        } else {
-            lootScroll = 0;
-        }
+        } else { lootScroll = 0; }
 
         int rowW = pw - (needsBar ? sbW + 1 : 1);
         gfx.enableScissor(ox, listTop, ox + rowW, listBot);
-        lootHoveredSlot = -1;
+        lootHoveredRow = -1;
         ItemStack tooltipStack = ItemStack.EMPTY;
+        int cursor = listTop - lootScroll;
 
-        for (int i = 0; i < items.size(); i++) {
-            ItemStack stack = items.get(i);
-            int rowY = listTop + i * VICI_ROW_H - lootScroll;
-            if (rowY + VICI_ROW_H <= listTop) continue;
+        for (int ri = 0; ri < rows.size(); ri++) {
+            LootRow row = rows.get(ri);
+            int rowH = (row instanceof LootSepRow) ? LOOT_SEP_H : LOOT_ROW_H;
+            int rowY = cursor; cursor += rowH;
+            if (rowY + rowH <= listTop) continue;
             if (rowY >= listBot) break;
 
-            if ((i & 1) == 1) gfx.fill(ox, rowY, ox + rowW, rowY + VICI_ROW_H, C_VICI_ROW_ODD);
+            if (row instanceof LootSepRow sep) {
+                // ── Separator ────────────────────────────────────────
+                gfx.fill(ox, rowY, ox + rowW, rowY + rowH, 0xFF0E0808);
+                String sepLabel = "\u2500\u2500 INVENTORY (" + sep.invCount() + ") \u2500\u2500";
+                int sx = ox + (rowW - font.width(sepLabel)) / 2;
+                gfx.drawString(font, sepLabel, sx, rowY + 1, 0xFF604848, false);
 
-            boolean hov = mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + VICI_ROW_H;
-            if (hov) { gfx.fill(ox, rowY, ox + rowW, rowY + VICI_ROW_H, C_LOOT_HOVER);
-                       lootHoveredSlot = i; tooltipStack = stack; }
+            } else if (row instanceof LootEquipRow equip) {
+                // ── Equipment row (maroon tint) ───────────────────────
+                int bg = (ri & 1) == 0 ? 0xFF180A0A : 0xFF200D0D;
+                gfx.fill(ox, rowY, ox + rowW, rowY + rowH, bg);
+                boolean hov = mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + rowH;
+                if (hov) { gfx.fill(ox, rowY, ox + rowW, rowY + rowH, C_LOOT_HOVER);
+                           lootHoveredRow = ri; tooltipStack = equip.stack(); }
 
-            // Item icon
-            gfx.renderItem(stack, ox + 2, rowY + 2);
-            gfx.renderItemDecorations(font, stack, ox + 2, rowY + 2);
+                gfx.renderItem(equip.stack(), ox + 1, rowY + 1);
+                gfx.renderItemDecorations(font, equip.stack(), ox + 1, rowY + 1);
 
-            // Count badge (right side)
-            String countStr = stack.getCount() > 1 ? "\u00d7" + stack.getCount() : "";
-            int cntX = ox + rowW - font.width(countStr) - 3;
-            if (!countStr.isEmpty())
-                gfx.drawString(font, countStr, cntX, rowY + 6, C_VICI_DIST, false);
+                // Slot label (right, dim)
+                String slotLabel = equipSlotLabel(equip.key());
+                int slW = font.width(slotLabel);
+                gfx.drawString(font, slotLabel, ox + rowW - slW - 2, rowY + 5, 0xFF604848, false);
 
-            // Name (truncated)
-            int nameMaxW = (countStr.isEmpty() ? rowW - 22 : cntX - ox - 22) - 2;
-            String name = stack.getHoverName().getString();
-            while (name.length() > 1 && font.width(name) > nameMaxW)
-                name = name.substring(0, name.length() - 1);
-            if (font.width(stack.getHoverName().getString()) > nameMaxW) name += "…";
-            gfx.drawString(font, name, ox + 20, rowY + 6, C_TEXT_WHITE, false);
+                // Item name (truncated, left of label)
+                int nameMaxW = rowW - 20 - slW - 6;
+                String name = equip.stack().getHoverName().getString();
+                while (name.length() > 1 && font.width(name) > nameMaxW)
+                    name = name.substring(0, name.length() - 1);
+                if (font.width(equip.stack().getHoverName().getString()) > nameMaxW) name += "…";
+                gfx.drawString(font, name, ox + 19, rowY + 5, C_TEXT_WHITE, false);
+
+            } else if (row instanceof LootInvRow inv) {
+                // ── Inventory row ─────────────────────────────────────
+                if ((ri & 1) == 0) gfx.fill(ox, rowY, ox + rowW, rowY + rowH, C_VICI_ROW_ODD);
+                boolean hov = mx >= ox && mx < ox + rowW && my >= rowY && my < rowY + rowH;
+                if (hov) { gfx.fill(ox, rowY, ox + rowW, rowY + rowH, C_LOOT_HOVER);
+                           lootHoveredRow = ri; tooltipStack = inv.stack(); }
+
+                gfx.renderItem(inv.stack(), ox + 1, rowY + 1);
+                gfx.renderItemDecorations(font, inv.stack(), ox + 1, rowY + 1);
+
+                String countStr = inv.stack().getCount() > 1 ? "\u00d7" + inv.stack().getCount() : "";
+                int cntX = ox + rowW - font.width(countStr) - 3;
+                if (!countStr.isEmpty())
+                    gfx.drawString(font, countStr, cntX, rowY + 5, C_VICI_DIST, false);
+
+                int nameMaxW = (countStr.isEmpty() ? rowW - 22 : cntX - ox - 22) - 2;
+                String name = inv.stack().getHoverName().getString();
+                while (name.length() > 1 && font.width(name) > nameMaxW)
+                    name = name.substring(0, name.length() - 1);
+                if (font.width(inv.stack().getHoverName().getString()) > nameMaxW) name += "…";
+                gfx.drawString(font, name, ox + 19, rowY + 5, C_TEXT_WHITE, false);
+            }
         }
 
         gfx.disableScissor();
 
-        if (items.isEmpty())
+        if (corpse.isEmpty())
             gfx.drawString(font, "Corpse is empty", ox + 10, listTop + 10, C_TEXT_LABEL, false);
 
-        // ── TAKE ALL button ───────────────────────────────────────────
-        int taY  = listBot + 3, taH = LOOT_FOOTER_H - 6;
-        int taX  = ox + 4,     taW  = pw - 8;
+        // ── TAKE ALL button ────────────────────────────────────────────
+        int taY = listBot + 3, taH = LOOT_FOOTER_H - 6;
+        int taX = ox + 4,     taW = pw - 8;
         lootTakeAllHovered = mx >= taX && mx < taX + taW && my >= taY && my < taY + taH;
         gfx.fill(taX, taY, taX + taW, taY + taH,
                  lootTakeAllHovered ? C_LOOT_BTN_HOV : C_LOOT_BTN);
         drawBorder(gfx, taX, taY, taW, taH, C_BORDER);
-        String taLabel = "\u2193 TAKE ALL (" + items.size() + ")";
-        gfx.drawString(font, taLabel, taX + (taW - font.width(taLabel)) / 2, taY + 3,
-                       C_TEXT_WHITE, false);
+        String taLabel = "\u2193 TAKE ALL (" + total + ")";
+        gfx.drawString(font, taLabel, taX + (taW - font.width(taLabel)) / 2, taY + 3, C_TEXT_WHITE, false);
 
-        // Tooltip
         if (!tooltipStack.isEmpty()) gfx.renderTooltip(font, tooltipStack, mx, my);
     }
 
@@ -862,10 +944,11 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         if (button == 0 && mx >= viciX() && mx < viciX() + VICI_PANEL_W) {
             // ── LOOT MODE ────────────────────────────────────────────
             if (selectedCorpsePos != null && CorpseClientCache.all().containsKey(selectedCorpsePos)) {
+                CorpseClientCache.CorpseEntry corpse = CorpseClientCache.all().get(selectedCorpsePos);
                 if (lootExitHovered) {
                     selectedCorpsePos = null; lootScroll = 0;
                 } else if (lootTakeAllHovered) {
-                    ModNetwork.CHANNEL.sendToServer(new C2STakeFromCorpsePacket(selectedCorpsePos, -1));
+                    ModNetwork.CHANNEL.sendToServer(C2STakeFromCorpsePacket.takeAll(selectedCorpsePos));
                 } else if (lootNavLeftHov && nearbyCorpseList.size() > 1) {
                     int idx = nearbyCorpseList.indexOf(selectedCorpsePos);
                     selectedCorpsePos = nearbyCorpseList.get(
@@ -875,9 +958,18 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                     int idx = nearbyCorpseList.indexOf(selectedCorpsePos);
                     selectedCorpsePos = nearbyCorpseList.get((idx + 1) % nearbyCorpseList.size());
                     lootScroll = 0;
-                } else if (lootHoveredSlot >= 0) {
-                    ModNetwork.CHANNEL.sendToServer(
-                            new C2STakeFromCorpsePacket(selectedCorpsePos, lootHoveredSlot));
+                } else if (lootHoveredRow >= 0 && corpse != null) {
+                    List<LootRow> rows = buildLootRows(corpse);
+                    if (lootHoveredRow < rows.size()) {
+                        LootRow row = rows.get(lootHoveredRow);
+                        if (row instanceof LootEquipRow equip) {
+                            ModNetwork.CHANNEL.sendToServer(
+                                    C2STakeFromCorpsePacket.namedSlot(selectedCorpsePos, equip.key()));
+                        } else if (row instanceof LootInvRow inv) {
+                            ModNetwork.CHANNEL.sendToServer(
+                                    C2STakeFromCorpsePacket.inventorySlot(selectedCorpsePos, inv.idx()));
+                        }
+                    }
                 }
                 return true;
             }
