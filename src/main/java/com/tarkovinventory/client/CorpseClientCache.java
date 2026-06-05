@@ -11,37 +11,40 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client-side cache of nearby corpse block inventories.
- *
- * <p>Populated / cleared by {@link com.tarkovinventory.network.S2CCorpseContentsPacket}.
- * Read by {@link com.tarkovinventory.client.screen.TarkovInventoryScreen}.
- *
- * <p>Uses {@link ConcurrentHashMap} because the network thread writes and the
- * render thread reads without explicit synchronization.
+ * Populated/cleared by S2CCorpseContentsPacket; read by TarkovInventoryScreen.
+ * Uses ConcurrentHashMap: network thread writes, render thread reads.
  */
 @OnlyIn(Dist.CLIENT)
 public final class CorpseClientCache {
 
     private CorpseClientCache() {}
 
-    /** Immutable snapshot stored per block position. */
-    public record CorpseEntry(String ownerName, List<ItemStack> items) {}
-
-    private static final Map<BlockPos, CorpseEntry> CORPSES = new ConcurrentHashMap<>();
-
-    public static void put(BlockPos pos, String ownerName, List<ItemStack> items) {
-        CORPSES.put(pos, new CorpseEntry(ownerName, List.copyOf(items)));
+    /**
+     * Snapshot of a corpse's contents.
+     *
+     * @param slottedItems  equipment/curios slots keyed by slot-id ("armor.head", "curios.back", …)
+     * @param inventoryItems remaining main-inventory stacks
+     */
+    public record CorpseEntry(
+            String ownerName,
+            Map<String, ItemStack> slottedItems,
+            List<ItemStack> inventoryItems
+    ) {
+        /** Total item count across both collections. */
+        public int totalCount() { return slottedItems.size() + inventoryItems.size(); }
+        /** True when both maps/lists are empty (corpse fully looted). */
+        public boolean isEmpty() { return slottedItems.isEmpty() && inventoryItems.isEmpty(); }
     }
 
-    public static void remove(BlockPos pos) {
-        CORPSES.remove(pos);
+    private static final ConcurrentHashMap<BlockPos, CorpseEntry> CORPSES = new ConcurrentHashMap<>();
+
+    public static void put(BlockPos pos, String ownerName,
+                           Map<String, ItemStack> slotted, List<ItemStack> inventory) {
+        CORPSES.put(pos, new CorpseEntry(ownerName,
+                Map.copyOf(slotted), List.copyOf(inventory)));
     }
 
-    /** Returns an unmodifiable snapshot of all cached corpse entries. */
-    public static Map<BlockPos, CorpseEntry> all() {
-        return Map.copyOf(CORPSES);
-    }
-
-    public static void clear() {
-        CORPSES.clear();
-    }
+    public static void remove(BlockPos pos)      { CORPSES.remove(pos); }
+    public static Map<BlockPos, CorpseEntry> all() { return Map.copyOf(CORPSES); }
+    public static void clear()                   { CORPSES.clear(); }
 }
