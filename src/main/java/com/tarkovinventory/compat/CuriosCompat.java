@@ -16,12 +16,11 @@ import java.util.Optional;
  * Uses pure reflection — no Curios classes are imported or referenced at
  * compile time, so the mod compiles and runs without Curios on the classpath.
  *
- * Supports three generations of Curios API for Forge 1.20.1:
- *   A) CuriosApi.getCuriosInventory(LivingEntity)       — Curios 5.3+ (newest)
- *   B) getCuriosHelper().getCuriosHandler(LivingEntity) — Curios 5.1–5.2
- *   C) getCuriosHelper().getCuriosHandler(Player)       — Curios 4.x / early 5
- *
- * All code that needs Curios should go through this class.
+ * Tries four patterns across all Curios 5.x builds for Forge 1.20.1:
+ *   A) CuriosApi.getCuriosInventory(LivingEntity) → LazyOptional  — via orElse(null)
+ *   B) CuriosApi.getCuriosInventory(LivingEntity) → LazyOptional  — via resolve()
+ *   C) getCuriosHelper().getCuriosHandler(LivingEntity)
+ *   D) getCuriosHelper().getCuriosHandler(Player)
  */
 public final class CuriosCompat {
 
@@ -31,43 +30,55 @@ public final class CuriosCompat {
         return ModList.get().isLoaded("curios");
     }
 
-    // ── Core: get the ICuriosItemHandler for a player ─────────────────
+    // ── Core: resolve the ICuriosItemHandler for a player ─────────────
 
     /**
-     * Returns the raw Curios item-handler object for the player,
-     * or null if Curios is absent or the API call fails.
-     *
-     * Tries all known API patterns so it works across Curios versions.
+     * Returns the raw ICuriosItemHandler for the given player, or null if
+     * Curios is absent or every known API pattern fails.
      */
     public static Object getHandler(Player player) {
         if (!isLoaded()) return null;
         try {
             Class<?> api = Class.forName("top.theillusivec4.curios.api.CuriosApi");
 
-            // ── Pattern A: CuriosApi.getCuriosInventory(LivingEntity) ─────
+            // ── Pattern A: getCuriosInventory(LivingEntity) — orElse ──────
             try {
                 Method m = api.getMethod("getCuriosInventory", LivingEntity.class);
                 Object lazyOpt = m.invoke(null, player);
-                // LazyOptional<T>.resolve() → Optional<T>
-                Method resolve = lazyOpt.getClass().getMethod("resolve");
-                Optional<?> opt = (Optional<?>) resolve.invoke(lazyOpt);
-                if (opt.isPresent()) return opt.get();
+                // Prefer orElse(null) — avoids potential resolve() wrapping differences
+                try {
+                    Method orElse = lazyOpt.getClass().getMethod("orElse", Object.class);
+                    Object handler = orElse.invoke(lazyOpt, (Object) null);
+                    if (handler != null) return handler;
+                } catch (NoSuchMethodException ignored) {}
+                // Fallback: resolve() → Optional<T>
+                try {
+                    Method resolve = lazyOpt.getClass().getMethod("resolve");
+                    Optional<?> opt = (Optional<?>) resolve.invoke(lazyOpt);
+                    if (opt.isPresent()) return opt.get();
+                } catch (NoSuchMethodException ignored) {}
             } catch (NoSuchMethodException ignored) {}
 
             // ── Pattern B: getCuriosHelper().getCuriosHandler(LivingEntity)
             try {
                 Object helper = api.getMethod("getCuriosHelper").invoke(null);
-                Method hm = helper.getClass().getMethod("getCuriosHandler", LivingEntity.class);
-                Optional<?> opt = (Optional<?>) hm.invoke(helper, player);
-                if (opt.isPresent()) return opt.get();
-            } catch (NoSuchMethodException ignored) {}
-
-            // ── Pattern C: getCuriosHelper().getCuriosHandler(Player) ─────
-            try {
-                Object helper = api.getMethod("getCuriosHelper").invoke(null);
-                Method hm = helper.getClass().getMethod("getCuriosHandler", Player.class);
-                Optional<?> opt = (Optional<?>) hm.invoke(helper, player);
-                if (opt.isPresent()) return opt.get();
+                // Try orElse first, then resolve
+                for (Class<?> paramType : new Class<?>[] { LivingEntity.class, Player.class }) {
+                    try {
+                        Method hm = helper.getClass().getMethod("getCuriosHandler", paramType);
+                        Object lazyOpt = hm.invoke(helper, player);
+                        try {
+                            Method orElse = lazyOpt.getClass().getMethod("orElse", Object.class);
+                            Object handler = orElse.invoke(lazyOpt, (Object) null);
+                            if (handler != null) return handler;
+                        } catch (NoSuchMethodException ignored) {}
+                        try {
+                            Method resolve = lazyOpt.getClass().getMethod("resolve");
+                            Optional<?> opt = (Optional<?>) resolve.invoke(lazyOpt);
+                            if (opt.isPresent()) return opt.get();
+                        } catch (NoSuchMethodException ignored) {}
+                    } catch (NoSuchMethodException ignored) {}
+                }
             } catch (NoSuchMethodException ignored) {}
 
         } catch (Throwable ignored) {}
@@ -77,27 +88,65 @@ public final class CuriosCompat {
     // ── Public helpers ────────────────────────────────────────────────
 
     /**
-     * Returns all stacks currently equipped in any Curios slot.
+     * Returns all non-empty stacks currently equipped in any Curios slot.
      * Returns an empty list if Curios is absent or an error occurs.
+     *
+     * Tries two approaches for extracting stacks:
+     *   1. handler.getCurios()            → Map of ICurioStacksHandler
+     *   2. handler.getEquippedCurios()    → flat Multimap / Iterable (newer builds)
      */
     public static List<CuriosSlotEntry> getEquippedSlots(Player player) {
         List<CuriosSlotEntry> result = new ArrayList<>();
         Object handler = getHandler(player);
         if (handler == null) return result;
+
+        // ── Approach 1: getCurios() → Map<String, ICurioStacksHandler> ───
         try {
-            Map<?, ?> curios = (Map<?, ?>) handler.getClass().getMethod("getCurios").invoke(handler);
+            Method getCurios = handler.getClass().getMethod("getCurios");
+            Map<?, ?> curios = (Map<?, ?>) getCurios.invoke(handler);
             for (Map.Entry<?, ?> entry : curios.entrySet()) {
                 String slotId = entry.getKey().toString();
                 Object stacksHandler = entry.getValue();
-                Object stacks = stacksHandler.getClass().getMethod("getStacks").invoke(stacksHandler);
-                int slots = (int) stacks.getClass().getMethod("getSlots").invoke(stacks);
-                Method getStack = stacks.getClass().getMethod("getStackInSlot", int.class);
+
+                // Try getStacks() first, then getEquippedStacks()
+                Object stacksObj = null;
+                for (String methodName : new String[] { "getStacks", "getEquippedStacks", "getCosmeticStacks" }) {
+                    try {
+                        stacksObj = stacksHandler.getClass().getMethod(methodName).invoke(stacksHandler);
+                        break;
+                    } catch (NoSuchMethodException ignored) {}
+                }
+                if (stacksObj == null) continue;
+
+                int slots = (int) stacksObj.getClass().getMethod("getSlots").invoke(stacksObj);
+                Method getStack = stacksObj.getClass().getMethod("getStackInSlot", int.class);
                 for (int i = 0; i < slots; i++) {
-                    ItemStack stack = (ItemStack) getStack.invoke(stacks, i);
-                    result.add(new CuriosSlotEntry(slotId, i, stack));
+                    ItemStack stack = (ItemStack) getStack.invoke(stacksObj, i);
+                    if (!stack.isEmpty()) result.add(new CuriosSlotEntry(slotId, i, stack));
                 }
             }
+            if (!result.isEmpty()) return result;
         } catch (Throwable ignored) {}
+
+        // ── Approach 2: getEquippedCurios() → Iterable of slot-result objects
+        try {
+            Method getEquipped = handler.getClass().getMethod("getEquippedCurios");
+            Object multimap = getEquipped.invoke(handler);
+            // Multimap<String, SlotResult> — iterate values()
+            Method values = multimap.getClass().getMethod("values");
+            Iterable<?> vals = (Iterable<?>) values.invoke(multimap);
+            for (Object slotResult : vals) {
+                // SlotResult has slotContext() and stack()
+                try {
+                    Object ctx = slotResult.getClass().getMethod("slotContext").invoke(slotResult);
+                    String slotId = (String) ctx.getClass().getMethod("identifier").invoke(ctx);
+                    int index     = (int) ctx.getClass().getMethod("index").invoke(ctx);
+                    ItemStack s   = (ItemStack) slotResult.getClass().getMethod("stack").invoke(slotResult);
+                    if (!s.isEmpty()) result.add(new CuriosSlotEntry(slotId, index, s));
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+
         return result;
     }
 
@@ -111,7 +160,12 @@ public final class CuriosCompat {
             Map<?, ?> curios = (Map<?, ?>) handler.getClass().getMethod("getCurios").invoke(handler);
             Object stacksHandler = curios.get(slotId);
             if (stacksHandler == null) return ItemStack.EMPTY;
-            Object stacks = stacksHandler.getClass().getMethod("getStacks").invoke(stacksHandler);
+            Object stacks = null;
+            for (String mn : new String[] { "getStacks", "getEquippedStacks" }) {
+                try { stacks = stacksHandler.getClass().getMethod(mn).invoke(stacksHandler); break; }
+                catch (NoSuchMethodException ignored) {}
+            }
+            if (stacks == null) return ItemStack.EMPTY;
             return (ItemStack) stacks.getClass()
                 .getMethod("getStackInSlot", int.class).invoke(stacks, index);
         } catch (Throwable ignored) {}
@@ -128,7 +182,12 @@ public final class CuriosCompat {
             Map<?, ?> curios = (Map<?, ?>) handler.getClass().getMethod("getCurios").invoke(handler);
             Object slotHandler = curios.get(slotId);
             if (slotHandler == null) return;
-            Object stacks = slotHandler.getClass().getMethod("getStacks").invoke(slotHandler);
+            Object stacks = null;
+            for (String mn : new String[] { "getStacks", "getEquippedStacks" }) {
+                try { stacks = slotHandler.getClass().getMethod(mn).invoke(slotHandler); break; }
+                catch (NoSuchMethodException ignored) {}
+            }
+            if (stacks == null) return;
             stacks.getClass().getMethod("setStackInSlot", int.class, ItemStack.class)
                 .invoke(stacks, index, stack);
         } catch (Throwable ignored) {}
