@@ -324,14 +324,17 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         hoverGridRow = toGridRow(my);
         tooltipSlot  = -1;
 
-        // Cell backgrounds
-        for (int row = 0; row < GRID_ROWS; row++) {
-            for (int col = 0; col < GRID_COLS; col++) {
-                int px = ox + col * CELL, py = oy + row * CELL;
-                gfx.fill(px, py, px + CELL, py + CELL, C_GRID_EMPTY);
-                gfx.fill(px + CELL - 1, py, px + CELL, py + CELL, C_GRID_LINE);
-                gfx.fill(px, py + CELL - 1, px + CELL, py + CELL, C_GRID_LINE);
-            }
+        // Grid background — 1 fill instead of 360 per-cell fills
+        gfx.fill(ox, oy, ox + GRID_W, oy + GRID_H, C_GRID_EMPTY);
+        // Vertical separator lines (GRID_COLS-1 calls)
+        for (int col = 1; col < GRID_COLS; col++) {
+            int lx = ox + col * CELL - 1;
+            gfx.fill(lx, oy, lx + 1, oy + GRID_H, C_GRID_LINE);
+        }
+        // Horizontal separator lines (GRID_ROWS-1 calls)
+        for (int row = 1; row < GRID_ROWS; row++) {
+            int ly = oy + row * CELL - 1;
+            gfx.fill(ox, ly, ox + GRID_W, ly + 1, C_GRID_LINE);
         }
 
         // Placed items
