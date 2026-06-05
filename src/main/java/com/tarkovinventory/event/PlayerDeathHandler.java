@@ -2,65 +2,115 @@ package com.tarkovinventory.event;
 
 import com.tarkovinventory.TarkovInventoryMod;
 import com.tarkovinventory.block.TarkovCorpseBlockEntity;
+import com.tarkovinventory.compat.CuriosCompat;
 import com.tarkovinventory.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Intercepts player death item drops and converts them to a
- * {@link com.tarkovinventory.block.TarkovCorpseBlock} placed at the player's feet.
+ * Captures player inventory on death, stores it in a TarkovCorpseBlock, and
+ * cancels the vanilla item-scatter.
  *
- * <p>Registered automatically via {@link Mod.EventBusSubscriber} on the FORGE bus.
+ * Two-phase approach:
+ *   1. LivingDeathEvent (HIGHEST) — capture equipment + curios slots while
+ *      the player object still has its inventory.
+ *   2. LivingDropsEvent (HIGH)    — cancel the vanilla drops; use the captured
+ *      data plus the drop list to build the structured corpse.
  */
 @Mod.EventBusSubscriber(modid = TarkovInventoryMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PlayerDeathHandler {
 
     private PlayerDeathHandler() {}
 
+    /** Temporary storage keyed by player UUID between the two event phases. */
+    private static final ConcurrentHashMap<UUID, Map<String, ItemStack>> PENDING_SLOTTED =
+            new ConcurrentHashMap<>();
+
+    // ── Phase 1: capture equipment while the player still has it ───────
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onLivingDeath(LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        Map<String, ItemStack> slotted = new LinkedHashMap<>();
+
+        // Vanilla armor slots
+        addSlotted(slotted, "armor.head",  player.getItemBySlot(EquipmentSlot.HEAD));
+        addSlotted(slotted, "armor.chest", player.getItemBySlot(EquipmentSlot.CHEST));
+        addSlotted(slotted, "armor.legs",  player.getItemBySlot(EquipmentSlot.LEGS));
+        addSlotted(slotted, "armor.feet",  player.getItemBySlot(EquipmentSlot.FEET));
+        addSlotted(slotted, "offhand",     player.getItemBySlot(EquipmentSlot.OFFHAND));
+
+        // Curios slots (soft-dep, no-ops if Curios is absent)
+        for (CuriosCompat.CuriosSlotEntry e : CuriosCompat.getEquippedSlots(player)) {
+            if (!e.stack().isEmpty())
+                slotted.put("curios." + e.slotId(), e.stack().copy());
+        }
+
+        PENDING_SLOTTED.put(player.getUUID(), slotted);
+    }
+
+    // ── Phase 2: cancel drops and build the corpse block ──────────────
+
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onLivingDrops(LivingDropsEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!(player.level() instanceof ServerLevel level)) return;
 
-        // Collect all ItemStacks the game was about to drop
-        List<ItemStack> collected = new ArrayList<>();
-        for (ItemEntity ie : event.getDrops()) {
-            ItemStack s = ie.getItem();
-            if (!s.isEmpty()) collected.add(s.copy());
-        }
-        if (collected.isEmpty()) return;
+        Map<String, ItemStack> slotted = PENDING_SLOTTED.remove(player.getUUID());
+        if (slotted == null) slotted = new LinkedHashMap<>();
 
-        // Find a valid placement position (air or replaceable block)
+        // Main inventory (36 slots, already distinct from armor/offhand)
+        List<ItemStack> inventory = new ArrayList<>();
+        for (ItemStack s : player.getInventory().items) {
+            if (!s.isEmpty()) inventory.add(s.copy());
+        }
+        // Also include anything extra in the drop list not already covered
+        // (mod-injected drops, XP bottles, etc.)
+        Set<String> slottedValues = new HashSet<>();
+        for (ItemStack s : slotted.values())
+            slottedValues.add(s.getDescriptionId() + s.getCount());
+        for (var ie : event.getDrops()) {
+            ItemStack s = ie.getItem();
+            if (s.isEmpty()) continue;
+            String key = s.getDescriptionId() + s.getCount();
+            if (!slottedValues.contains(key)) inventory.add(s.copy());
+        }
+
+        if (slotted.isEmpty() && inventory.isEmpty()) return;
+
+        // Find a valid placement spot
         BlockPos pos = player.blockPosition();
         for (int dy = 0; dy <= 2; dy++) {
-            BlockPos candidate = pos.above(dy);
-            BlockState bs = level.getBlockState(candidate);
-            if (bs.isAir() || bs.canBeReplaced()) {
-                pos = candidate;
-                break;
-            }
+            BlockPos c = pos.above(dy);
+            BlockState bs = level.getBlockState(c);
+            if (bs.isAir() || bs.canBeReplaced()) { pos = c; break; }
         }
 
-        // Place corpse block and store items
         final BlockPos finalPos = pos;
         level.setBlock(finalPos, ModBlocks.TARKOV_CORPSE.get().defaultBlockState(), 3);
         if (level.getBlockEntity(finalPos) instanceof TarkovCorpseBlockEntity be) {
-            be.setItems(collected);
             be.setOwnerName(player.getGameProfile().getName());
+            be.setSlottedItems(slotted);
+            be.setInventoryItems(inventory);
         }
 
-        // Cancel vanilla drop so items don't scatter on the ground as well
         event.setCanceled(true);
+    }
+
+    private static void addSlotted(Map<String, ItemStack> map, String key, ItemStack stack) {
+        if (!stack.isEmpty()) map.put(key, stack.copy());
     }
 }
