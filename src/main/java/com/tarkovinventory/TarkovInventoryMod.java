@@ -4,6 +4,8 @@ import com.tarkovinventory.capability.ModCapabilities;
 import com.tarkovinventory.command.TarkovCommand;
 import com.tarkovinventory.compat.TaczCompat;
 import com.tarkovinventory.network.ModNetwork;
+import com.tarkovinventory.registry.ModBlockEntities;
+import com.tarkovinventory.registry.ModBlocks;
 import com.tarkovinventory.registry.ModItems;
 import com.tarkovinventory.registry.ModMenuTypes;
 import net.minecraftforge.common.MinecraftForge;
@@ -23,9 +25,13 @@ public class TarkovInventoryMod {
     public TarkovInventoryMod() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        // ── Registry ─────────────────────────────────────────────────
         ModItems.ITEMS.register(modEventBus);
         ModMenuTypes.MENU_TYPES.register(modEventBus);
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
 
+        // ── Lifecycle ─────────────────────────────────────────────────
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::clientSetup);
 
@@ -36,7 +42,8 @@ public class TarkovInventoryMod {
         modEventBus.addListener(ModCapabilities::onRegisterCapabilities);
 
         MinecraftForge.EVENT_BUS.register(this);
-        // ModCapabilities Forge-bus events are handled automatically via @Mod.EventBusSubscriber
+        // PlayerDeathHandler and ModCapabilities Forge-bus events are handled
+        // automatically via @Mod.EventBusSubscriber annotations.
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
