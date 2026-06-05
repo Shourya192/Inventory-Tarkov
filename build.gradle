@@ -47,17 +47,12 @@ minecraft {
 
 repositories {
     mavenCentral()
-    // Curios API
-    maven { url = "https://maven.theillusivec4.top/" }
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
-
-    // Curios API — optional at runtime, required at compile time for the compat class
-    // Use compileOnly so the mod still works without Curios installed
-    compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.20.1-5.3.5+:api")
-    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.20.1-5.3.5+")
+    // Curios and other soft-compat mods are detected via reflection at runtime.
+    // No compile-time dependencies on optional mods needed.
 }
 
 jar {
