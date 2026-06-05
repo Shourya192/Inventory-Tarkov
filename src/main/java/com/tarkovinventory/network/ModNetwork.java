@@ -24,5 +24,15 @@ public final class ModNetwork {
                 C2SOpenTarkovPacket::encode,
                 C2SOpenTarkovPacket::decode,
                 C2SOpenTarkovPacket::handle);
+        CHANNEL.registerMessage(id++,
+                C2SPickupItemPacket.class,
+                C2SPickupItemPacket::encode,
+                C2SPickupItemPacket::decode,
+                C2SPickupItemPacket::handle);
+        CHANNEL.registerMessage(id++,
+                C2SLootAllPacket.class,
+                C2SLootAllPacket::encode,
+                C2SLootAllPacket::decode,
+                C2SLootAllPacket::handle);
     }
 }
