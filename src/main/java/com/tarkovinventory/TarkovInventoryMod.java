@@ -1,12 +1,15 @@
 package com.tarkovinventory;
 
 import com.tarkovinventory.capability.ModCapabilities;
+import com.tarkovinventory.command.TarkovCommand;
 import com.tarkovinventory.compat.TaczCompat;
 import com.tarkovinventory.network.ModNetwork;
 import com.tarkovinventory.registry.ModItems;
 import com.tarkovinventory.registry.ModMenuTypes;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -44,5 +47,10 @@ public class TarkovInventoryMod {
     }
 
     private void clientSetup(final FMLClientSetupEvent event) {
+    }
+
+    @SubscribeEvent
+    public void onRegisterCommands(RegisterCommandsEvent event) {
+        TarkovCommand.register(event.getDispatcher());
     }
 }
