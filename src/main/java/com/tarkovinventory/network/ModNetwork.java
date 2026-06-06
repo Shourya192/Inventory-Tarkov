@@ -49,5 +49,10 @@ public final class ModNetwork {
                 C2SRigSlotPacket::encode,
                 C2SRigSlotPacket::decode,
                 C2SRigSlotPacket::handle);
+        CHANNEL.registerMessage(id++,
+                C2SRigPlacePacket.class,
+                C2SRigPlacePacket::encode,
+                C2SRigPlacePacket::decode,
+                C2SRigPlacePacket::handle);
     }
 }

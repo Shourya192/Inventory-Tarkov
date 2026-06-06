@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
@@ -15,8 +16,8 @@ import java.util.function.Supplier;
  * Client → Server: take one item from a slot inside the player's equipped rig
  * (curios "body" slot, or vanilla armor CHEST as fallback).
  *
- * The rig item's IItemHandler capability is used so that any container-item
- * from any mod works automatically — no special-casing per mod required.
+ * Uses the custom Tarkov RigInventory stored in the rig item's NBT,
+ * independent of the rig's original mod inventory.
  */
 public class C2SRigSlotPacket {
 
@@ -54,17 +55,18 @@ public class C2SRigSlotPacket {
             if (rig.isEmpty()) rig = player.getItemBySlot(EquipmentSlot.CHEST);
             if (rig.isEmpty()) return;
 
-            // BackpackCompat.extractFromRig: tries IItemHandler capability first,
-            // then falls back to NBT read→extract→write for mods like Modern Mayhem
-            // that store their inventory in item NBT without a Forge capability.
-            ItemStack taken = BackpackCompat.extractFromRig(rig, msg.slotIndex);
+            // Extract from custom Tarkov RigInventory (independent of mod inventory)
+            IItemHandler handler = BackpackCompat.getRigInventoryHandler(rig);
+            if (handler == null || msg.slotIndex >= handler.getSlots()) return;
+
+            ItemStack taken = handler.extractItem(msg.slotIndex, 64, false);
             if (!taken.isEmpty()) {
                 // Re-set rig in its parent slot so Forge/Curios detect the NBT change and sync
                 if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-    CuriosCompat.setSlot(player, "body", 0, rig);
-} else {
-    player.setItemSlot(EquipmentSlot.CHEST, rig);
-}
+                    CuriosCompat.setSlot(player, "body", 0, rig);
+                } else {
+                    player.setItemSlot(EquipmentSlot.CHEST, rig);
+                }
 
                 // Give item to player inventory or drop at feet
                 if (!player.getInventory().add(taken)) {
