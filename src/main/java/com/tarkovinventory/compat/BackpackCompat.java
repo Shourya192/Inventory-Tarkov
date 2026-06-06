@@ -212,7 +212,6 @@ public final class BackpackCompat {
         // 2. Modern Mayhem: deserialize, extract, serialize back
         if ("mm".equals(getNamespace(rig.getItem()))) {
             CompoundTag tag = rig.getOrCreateTag();
-            System.out.println("RIG TAG = " + tag);
             if (tag.contains("inventory", 10)) {
                 try {
                     ItemStackHandler h = new ItemStackHandler();
