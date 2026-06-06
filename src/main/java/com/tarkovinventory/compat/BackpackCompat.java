@@ -25,6 +25,7 @@ import java.util.Arrays;
  *  - {@link #detectMod(ItemStack)} — which mod owns this item
  *  - {@link #asItemHandler(ItemStack)} — IItemHandler view of the inventory,
  *    falling back to NBT reading when the item does not expose the capability
+ *  - {@link #getRigInventoryHandler(ItemStack)} — Custom rig inventory (independent of mod)
  */
 public final class BackpackCompat {
 
@@ -148,6 +149,37 @@ public final class BackpackCompat {
         }
 
         return null;
+    }
+
+    /**
+     * Returns an IItemHandler for a rig that uses custom Tarkov rig inventory storage.
+     * This is independent of the mod's original inventory system.
+     */
+    @Nullable
+    public static IItemHandler getRigInventoryHandler(ItemStack rigItem) {
+        if (rigItem.isEmpty()) return null;
+
+        // Get rig dimensions from RigSizes registry
+        int cols = com.tarkovinventory.inventory.RigSizes.getCols(rigItem);
+        int rows = com.tarkovinventory.inventory.RigSizes.getRows(rigItem);
+
+        // Get or create the custom RigInventory from the rig's NBT
+        CompoundTag tag = rigItem.getOrCreateTag();
+        com.tarkovinventory.inventory.RigInventory rigInv;
+
+        if (tag.contains("TarkovRigInventory")) {
+            rigInv = com.tarkovinventory.inventory.RigInventory.unwrapFromNBT(tag);
+        } else {
+            rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
+        }
+
+        // If size changed, update it
+        if (rigInv.getCols() != cols || rigInv.getRows() != rows) {
+            rigInv.setSize(cols, rows);
+        }
+
+        // Wrap RigInventory as IItemHandler
+        return new RigInventoryItemHandler(rigInv, tag);
     }
 
     // ── Write operations (server-side) ───────────────────────────────────
@@ -281,5 +313,64 @@ public final class BackpackCompat {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) { return false; }
+    }
+
+    // ── RigInventory IItemHandler wrapper ────────────────────────────────
+
+    /**
+     * Wraps a RigInventory as an IItemHandler with write-through to NBT.
+     */
+    private static final class RigInventoryItemHandler implements IItemHandler {
+        private final com.tarkovinventory.inventory.RigInventory rigInv;
+        private final CompoundTag parentTag;
+
+        RigInventoryItemHandler(com.tarkovinventory.inventory.RigInventory rigInv, CompoundTag parentTag) {
+            this.rigInv = rigInv;
+            this.parentTag = parentTag;
+        }
+
+        @Override
+        public int getSlots() {
+            return rigInv.getSlots();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return rigInv.getItem(slot);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (stack.isEmpty()) return ItemStack.EMPTY;
+            ItemStack copy = stack.copy();
+            if (!simulate) {
+                rigInv.insertItem(slot, copy);
+                saveToNBT();
+            }
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            ItemStack extracted = rigInv.extractItem(slot, amount);
+            if (!extracted.isEmpty() && !simulate) {
+                saveToNBT();
+            }
+            return extracted;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 64;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return true;
+        }
+
+        private void saveToNBT() {
+            parentTag.put("TarkovRigInventory", rigInv.serializeNBT());
+        }
     }
 }
