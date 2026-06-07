@@ -4,32 +4,56 @@ import com.tarkovinventory.inventory.RigInventory;
 import com.tarkovinventory.inventory.RigSizes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
-/**
- * SAFE CORE RULES:
- * - Never mutate inventories inside handlers
- * - Never auto-save inside capability wrappers
- * - Always use RigTransaction for modifications
- */
 public final class BackpackCompat {
 
     private BackpackCompat() {}
 
-    // ─────────────────────────────────────────────────────────────
-    // 🔥 SINGLE SOURCE OF TRUTH: TRANSACTION SYSTEM
-    // ─────────────────────────────────────────────────────────────
+    // ─────────────────────────────
+    // MOD DETECTION
+    // ─────────────────────────────
+    public enum BackpackMod {
+        NONE, SOPHISTICATED_BACKPACKS, TRAVELERS_BACKPACK,
+        IRON_BACKPACKS, MODERN_MAYHEM, SURVIVORS_ARSENAL
+    }
 
-    /**
-     * Opens a safe, isolated snapshot of a rig inventory.
-     * MUST be committed manually using commit().
-     */
+    public static BackpackMod detectMod(ItemStack stack) {
+        if (stack.isEmpty()) return BackpackMod.NONE;
+
+        String ns = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).getNamespace();
+
+        return switch (ns) {
+            case "sophisticatedbackpacks" -> BackpackMod.SOPHISTICATED_BACKPACKS;
+            case "travelersbackpack" -> BackpackMod.TRAVELERS_BACKPACK;
+            case "ironbackpacks" -> BackpackMod.IRON_BACKPACKS;
+            case "mm" -> BackpackMod.MODERN_MAYHEM;
+            case "survivorsarsenal" -> BackpackMod.SURVIVORS_ARSENAL;
+            default -> BackpackMod.NONE;
+        };
+    }
+
+    public static boolean isExternalBackpack(ItemStack stack) {
+        return detectMod(stack) != BackpackMod.NONE;
+    }
+
+    public static String getExternalLabel(ItemStack stack) {
+        return switch (detectMod(stack)) {
+            case SOPHISTICATED_BACKPACKS -> "Sophisticated Backpack";
+            case TRAVELERS_BACKPACK -> "Traveler's Backpack";
+            case IRON_BACKPACKS -> "Iron Backpack";
+            case MODERN_MAYHEM -> "Modern Mayhem";
+            case SURVIVORS_ARSENAL -> "Survivor's Arsenal";
+            default -> null;
+        };
+    }
+
+    // ─────────────────────────────
+    // TRANSACTION CORE
+    // ─────────────────────────────
     public static RigTransaction openRig(ItemStack rig) {
         return new RigTransaction(rig);
     }
-
-    // ─────────────────────────────────────────────────────────────
-    // 🔥 RIG TRANSACTION (CORE ANTI-DUPE SYSTEM)
-    // ─────────────────────────────────────────────────────────────
 
     public static final class RigTransaction {
 
@@ -37,72 +61,65 @@ public final class BackpackCompat {
         public final CompoundTag tag;
         public final RigInventory inv;
 
-        private final int cols;
-        private final int rows;
-
         public RigTransaction(ItemStack rig) {
             this.rig = rig;
             this.tag = rig.getOrCreateTag();
 
-            this.cols = RigSizes.getCols(rig);
-            this.rows = RigSizes.getRows(rig);
+            this.inv = new RigInventory(
+                    RigSizes.getCols(rig),
+                    RigSizes.getRows(rig)
+            );
 
-            this.inv = new RigInventory(cols, rows);
-
-            // Load saved data if present
             if (tag.contains("TarkovRigInventory")) {
-                this.inv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
+                inv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
             }
         }
 
-        /**
-         * Commit changes back to item NBT.
-         * ONLY CALL ONCE per packet/action.
-         */
         public void commit() {
             tag.put("TarkovRigInventory", inv.serializeNBT());
         }
 
-        /**
-         * Slot validation helper
-         */
         public boolean isValidSlot(int slot) {
             return slot >= 0 && slot < inv.getSlots();
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // ❌ LEGACY METHOD (DEPRECATED - DO NOT USE FOR LOGIC)
-    // ─────────────────────────────────────────────────────────────
-
-    /**
-     * ⚠️ ONLY FOR UI RENDERING / READ-ONLY DISPLAY
-     * DO NOT USE FOR GAME LOGIC OR EXTRACTION
-     */
-    @Deprecated
-    public static RigInventory getLegacyRigInventory(ItemStack rig) {
-        int cols = RigSizes.getCols(rig);
-        int rows = RigSizes.getRows(rig);
-
-        CompoundTag tag = rig.getTag();
-        RigInventory inv = new RigInventory(cols, rows);
-
-        if (tag != null && tag.contains("TarkovRigInventory")) {
-            inv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
-        }
-
-        return inv;
+    // ─────────────────────────────
+    // BACK COMPAT HANDLER (UI ONLY SAFE)
+    // ─────────────────────────────
+    public static IItemHandler getRigInventoryHandler(ItemStack rig) {
+        RigTransaction tx = openRig(rig);
+        return new RigInventoryHandler(tx);
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 🔥 SAFE SYNC HELPERS (OPTIONAL USE)
-    // ─────────────────────────────────────────────────────────────
+    private static final class RigInventoryHandler implements IItemHandler {
 
-    /**
-     * Writes inventory back safely WITHOUT modifying logic flow.
-     * (Used only when you already own a transaction)
-     */
-    public static void commitRig(RigTransaction tx) {
-        tx.commit();
+        private final RigTransaction tx;
+
+        RigInventoryHandler(RigTransaction tx) {
+            this.tx = tx;
+        }
+
+        @Override public int getSlots() { return tx.inv.getSlots(); }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return tx.inv.getItem(slot);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (!simulate) tx.inv.insertItem(slot, stack);
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return tx.inv.extractItem(slot, amount, simulate);
+        }
+
+        @Override public int getSlotLimit(int slot) { return 64; }
+
+        @Override public boolean isItemValid(int slot, ItemStack stack) { return true; }
     }
 }

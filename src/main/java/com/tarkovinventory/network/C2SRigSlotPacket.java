@@ -15,7 +15,7 @@ import java.util.function.Supplier;
 public class C2SRigSlotPacket {
 
     public static final byte SRC_CURIOS = 0;
-    public static final byte SRC_ARMOR  = 1;
+    public static final byte SRC_ARMOR = 1;
 
     private final int slotIndex;
     private final byte rigSource;
@@ -40,9 +40,6 @@ public class C2SRigSlotPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
 
-            // ─────────────────────────────────────────────
-            // 1. Resolve rig
-            // ─────────────────────────────────────────────
             ItemStack rig = ItemStack.EMPTY;
 
             if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
@@ -55,22 +52,13 @@ public class C2SRigSlotPacket {
 
             if (rig.isEmpty()) return;
 
-            // ─────────────────────────────────────────────
-            // 2. SINGLE SOURCE OF TRUTH (TRANSACTION)
-            // ─────────────────────────────────────────────
             RigTransaction tx = BackpackCompat.openRig(rig);
 
             if (!tx.isValidSlot(msg.slotIndex)) return;
 
-            // ─────────────────────────────────────────────
-            // 3. Extract item (ONLY ONCE)
-            // ─────────────────────────────────────────────
             ItemStack taken = tx.inv.extractItem(msg.slotIndex, 64, false);
             if (taken.isEmpty()) return;
 
-            // ─────────────────────────────────────────────
-            // 4. Insert into player inventory safely
-            // ─────────────────────────────────────────────
             ItemStack carried = player.containerMenu.getCarried();
 
             ItemStack leftover = ItemStack.EMPTY;
@@ -85,9 +73,7 @@ public class C2SRigSlotPacket {
                 carried.grow(move);
                 taken.shrink(move);
 
-                if (!taken.isEmpty()) {
-                    leftover = taken;
-                }
+                leftover = taken;
 
             } else {
                 leftover = taken;
@@ -99,14 +85,8 @@ public class C2SRigSlotPacket {
                 }
             }
 
-            // ─────────────────────────────────────────────
-            // 5. COMMIT EXACTLY ONCE (CRITICAL FIX)
-            // ─────────────────────────────────────────────
             tx.commit();
 
-            // ─────────────────────────────────────────────
-            // 6. Sync back to correct slot holder
-            // ─────────────────────────────────────────────
             if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
                 CuriosCompat.setSlot(player, "body", 0, rig);
             } else {

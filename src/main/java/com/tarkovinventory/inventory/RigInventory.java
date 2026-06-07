@@ -4,12 +4,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
 
-/**
- * DUPE-SAFE RULES:
- * - No method may leave inventory in half-mutated state
- * - All operations must be atomic
- * - Slot access is always validated
- */
 public class RigInventory {
 
     private ItemStack[] items;
@@ -20,61 +14,40 @@ public class RigInventory {
         this.cols = Math.max(1, cols);
         this.rows = Math.max(1, rows);
         this.items = new ItemStack[getSlots()];
+
         for (int i = 0; i < items.length; i++) {
             items[i] = ItemStack.EMPTY;
         }
     }
 
-    // ─────────────────────────────────────────────
-    // BASIC INFO
-    // ─────────────────────────────────────────────
-
-    public int getCols() {
-        return cols;
-    }
-
-    public int getRows() {
-        return rows;
-    }
-
-    public int getSlots() {
-        return cols * rows;
-    }
-
-    // ─────────────────────────────────────────────
-    // SAFE SLOT ACCESS
-    // ─────────────────────────────────────────────
+    public int getCols() { return cols; }
+    public int getRows() { return rows; }
+    public int getSlots() { return cols * rows; }
 
     public ItemStack getItem(int slot) {
         if (!isValid(slot)) return ItemStack.EMPTY;
         return items[slot];
     }
 
-    // ─────────────────────────────────────────────
-    // ATOMIC INSERT
-    // ─────────────────────────────────────────────
+    public boolean isValid(int slot) {
+        return slot >= 0 && slot < items.length;
+    }
 
+    // ─────────────────────────────
+    // INSERT (ATOMIC)
+    // ─────────────────────────────
     public ItemStack insertItem(int slot, ItemStack stack) {
-        if (stack.isEmpty() || !isValid(slot)) {
-            return stack;
-        }
+        if (!isValid(slot) || stack.isEmpty()) return stack;
 
         ItemStack existing = items[slot];
 
-        // empty slot → full insert
         if (existing.isEmpty()) {
             items[slot] = stack.copy();
             return ItemStack.EMPTY;
         }
 
-        // same item → merge safely
         if (ItemStack.isSameItemSameTags(existing, stack)) {
-
-            int max = Math.min(existing.getMaxStackSize(), getSlotLimit(slot));
-            int space = max - existing.getCount();
-
-            if (space <= 0) return stack;
-
+            int space = existing.getMaxStackSize() - existing.getCount();
             int move = Math.min(space, stack.getCount());
 
             existing.grow(move);
@@ -83,23 +56,17 @@ public class RigInventory {
             return stack;
         }
 
-        // cannot insert
         return stack;
     }
 
-    // ─────────────────────────────────────────────
-    // ATOMIC EXTRACT (CRITICAL FIX AREA)
-    // ─────────────────────────────────────────────
-
+    // ─────────────────────────────
+    // EXTRACT (SAFE)
+    // ─────────────────────────────
     public ItemStack extractItem(int slot, int amount) {
-        if (!isValid(slot) || amount <= 0) {
-            return ItemStack.EMPTY;
-        }
+        if (!isValid(slot) || amount <= 0) return ItemStack.EMPTY;
 
         ItemStack existing = items[slot];
-        if (existing.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
+        if (existing.isEmpty()) return ItemStack.EMPTY;
 
         int extracted = Math.min(amount, existing.getCount());
 
@@ -115,49 +82,46 @@ public class RigInventory {
         return result;
     }
 
-    // ─────────────────────────────────────────────
-    // SLOT LIMIT
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────
+    // COMPAT OVERLOAD (IMPORTANT)
+    // ─────────────────────────────
+    public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        if (simulate) {
+            ItemStack s = getItem(slot);
+            if (s.isEmpty()) return ItemStack.EMPTY;
 
-    public int getSlotLimit(int slot) {
-        return 64;
+            ItemStack copy = s.copy();
+            copy.setCount(Math.min(amount, copy.getCount()));
+            return copy;
+        }
+
+        return extractItem(slot, amount);
     }
 
-    // ─────────────────────────────────────────────
-    // VALIDATION (IMPORTANT)
-    // ─────────────────────────────────────────────
-
-    public boolean isValid(int slot) {
-        return slot >= 0 && slot < items.length;
-    }
-
-    // ─────────────────────────────────────────────
-    // RESIZE (SAFE VERSION)
-    // ─────────────────────────────────────────────
-
+    // ─────────────────────────────
+    // RESIZE SAFE
+    // ─────────────────────────────
     public void setSize(int newCols, int newRows) {
         int newSize = Math.max(1, newCols) * Math.max(1, newRows);
 
         ItemStack[] newItems = new ItemStack[newSize];
+
         for (int i = 0; i < newSize; i++) {
             newItems[i] = ItemStack.EMPTY;
         }
 
         int copy = Math.min(items.length, newSize);
 
-        for (int i = 0; i < copy; i++) {
-            newItems[i] = items[i];
-        }
+        System.arraycopy(items, 0, newItems, 0, copy);
 
         this.cols = newCols;
         this.rows = newRows;
         this.items = newItems;
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────
     // NBT SAVE
-    // ─────────────────────────────────────────────
-
+    // ─────────────────────────────
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
         ListTag list = new ListTag();
@@ -178,12 +142,10 @@ public class RigInventory {
         return tag;
     }
 
-    // ─────────────────────────────────────────────
-    // NBT LOAD (SAFE)
-    // ─────────────────────────────────────────────
-
+    // ─────────────────────────────
+    // NBT LOAD
+    // ─────────────────────────────
     public void deserializeNBT(CompoundTag tag) {
-
         this.cols = tag.getInt("Cols");
         this.rows = tag.getInt("Rows");
 
@@ -198,12 +160,23 @@ public class RigInventory {
 
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
-
             int slot = entry.getByte("Slot") & 255;
 
             if (slot >= 0 && slot < items.length) {
                 items[slot] = ItemStack.of(entry);
             }
         }
+    }
+
+    // ─────────────────────────────
+    // LEGACY HELPER
+    // ─────────────────────────────
+    public static RigInventory unwrapFromNBT(CompoundTag tag) {
+        int cols = tag.getInt("Cols");
+        int rows = tag.getInt("Rows");
+
+        RigInventory inv = new RigInventory(cols, rows);
+        inv.deserializeNBT(tag);
+        return inv;
     }
 }
