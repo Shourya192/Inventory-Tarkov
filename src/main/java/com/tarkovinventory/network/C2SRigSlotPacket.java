@@ -109,3 +109,4 @@ public class C2SRigSlotPacket {
 
     ctx.get().setPacketHandled(true);
 }
+}
