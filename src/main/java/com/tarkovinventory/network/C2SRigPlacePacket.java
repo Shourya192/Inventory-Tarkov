@@ -93,8 +93,18 @@ public class C2SRigPlacePacket {
             for (int i = 0; i < grid.getContainerSize(); i++) {
                 ItemStack s = grid.getItem(i);
                 if (!s.isEmpty() && ItemStack.isSameItemSameTags(s, target)) {
-                    ItemStack taken = grid.removeItem(i);
-                    if (!taken.isEmpty()) return taken.copyWithCount(1);
+                    ItemStack s = grid.getItem(i);
+if (!s.isEmpty() && ItemStack.isSameItemSameTags(s, target)) {
+    ItemStack taken = s.copyWithCount(1);
+
+    s.shrink(1);
+
+    if (s.isEmpty()) {
+        grid.setItem(i, ItemStack.EMPTY);
+    }
+
+    return taken;
+}
                 }
             }
         }
