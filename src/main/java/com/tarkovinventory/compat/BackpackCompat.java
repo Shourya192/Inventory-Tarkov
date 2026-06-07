@@ -1,253 +1,111 @@
 package com.tarkovinventory.compat;
 
+import com.tarkovinventory.inventory.RigInventory;
+import com.tarkovinventory.inventory.RigSizes;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.registries.ForgeRegistries;
-
-import javax.annotation.Nullable;
-import java.util.Arrays;
 
 /**
- * Soft compatibility with popular backpack / rig mods:
- *  - Sophisticated Backpacks (sophisticatedbackpacks)
- *  - Traveler's Backpack (travelersbackpack)
- *  - Iron Backpacks (ironbackpacks)
- *  - Modern Mayhem (mm) — backpacks + curios rigs
- *  - Survivor's Arsenal (survivorsarsenal) — backpacks
- *
- * Provides:
- *  - {@link #detectMod(ItemStack)} — which mod owns this item
- *  - {@link #asItemHandler(ItemStack)} — IItemHandler view of the inventory,
- *    falling back to NBT reading when the item does not expose the capability
- *  - {@link #getRigInventoryHandler(ItemStack)} — Custom rig inventory (independent of mod)
+ * SAFE CORE RULES:
+ * - Never mutate inventories inside handlers
+ * - Never auto-save inside capability wrappers
+ * - Always use RigTransaction for modifications
  */
 public final class BackpackCompat {
 
     private BackpackCompat() {}
 
-    public enum BackpackMod {
-        SOPHISTICATED_BACKPACKS("sophisticatedbackpacks"),
-        TRAVELERS_BACKPACK("travelersbackpack"),
-        IRON_BACKPACKS("ironbackpacks"),
-        MODERN_MAYHEM("mm"),
-        SURVIVORS_ARSENAL("survivorsarsenal"),
-        NONE("");
-
-        public final String modId;
-        BackpackMod(String id) { this.modId = id; }
-
-        public boolean isLoaded() {
-            return !modId.isEmpty() && ModList.get().isLoaded(modId);
-        }
-    }
+    // ─────────────────────────────────────────────────────────────
+    // 🔥 SINGLE SOURCE OF TRUTH: TRANSACTION SYSTEM
+    // ─────────────────────────────────────────────────────────────
 
     /**
-     * Returns which backpack mod the given item belongs to, or NONE.
+     * Opens a safe, isolated snapshot of a rig inventory.
+     * MUST be committed manually using commit().
      */
-    public static BackpackMod detectMod(ItemStack stack) {
-        if (stack.isEmpty()) return BackpackMod.NONE;
-        String ns = getNamespace(stack.getItem());
-
-        for (BackpackMod mod : BackpackMod.values()) {
-            if (mod == BackpackMod.NONE) continue;
-            if (ns.equals(mod.modId) && mod.isLoaded()) return mod;
-        }
-        return BackpackMod.NONE;
+    public static RigTransaction openRig(ItemStack rig) {
+        return new RigTransaction(rig);
     }
 
-    /**
-     * Returns true if the item is a known backpack from another mod.
-     */
-    public static boolean isExternalBackpack(ItemStack stack) {
-        return detectMod(stack) != BackpackMod.NONE;
-    }
+    // ─────────────────────────────────────────────────────────────
+    // 🔥 RIG TRANSACTION (CORE ANTI-DUPE SYSTEM)
+    // ─────────────────────────────────────────────────────────────
 
-    /**
-     * Returns a user-facing label for the external backpack type, or null.
-     */
-    @Nullable
-    public static String getExternalLabel(ItemStack stack) {
-        BackpackMod mod = detectMod(stack);
-        return switch (mod) {
-            case SOPHISTICATED_BACKPACKS -> "Sophisticated Backpack";
-            case TRAVELERS_BACKPACK      -> "Traveler's Backpack";
-            case IRON_BACKPACKS          -> "Iron Backpack";
-            case MODERN_MAYHEM          -> "Modern Mayhem";
-            case SURVIVORS_ARSENAL      -> "Survivor's Arsenal";
-            default -> null;
-        };
-    }
+    public static final class RigTransaction {
 
-    /** Whether ANY backpack / rig mod is detected at runtime. */
-    public static boolean anyLoaded() {
-        for (BackpackMod mod : BackpackMod.values()) {
-            if (mod.isLoaded()) return true;
-        }
-        return false;
-    }
+        public final ItemStack rig;
+        public final CompoundTag tag;
+        public final RigInventory inv;
 
-    // ── IItemHandler resolution ───────────────────────────────────────────
+        private final int cols;
+        private final int rows;
 
-    /**
-     * Returns an {@link IItemHandler} for the given item stack.
-     *
-     * Resolution order:
-     * <ol>
-     *   <li>IItemHandler capability (works for most mods)</li>
-     *   <li>Modern Mayhem NBT fallback — stores {@code ItemStackHandler} data
-     *       under the {@code "inventory"} compound in the item tag</li>
-     *   <li>Survivor's Arsenal NBT fallback — stores a vanilla {@code SimpleContainer}
-     *       list under {@code "Inventory"} directly in the item tag</li>
-     * </ol>
-     *
-     * Returns {@code null} if no handler can be resolved.
-     */
-    @Nullable
-    public static IItemHandler asItemHandler(ItemStack stack) {
-        if (stack.isEmpty()) return null;
+        public RigTransaction(ItemStack rig) {
+            this.rig = rig;
+            this.tag = rig.getOrCreateTag();
 
-        // 1. Try the IItemHandler capability first
-        var cap = stack.getCapability(ForgeCapabilities.ITEM_HANDLER);
-        if (cap.isPresent()) return cap.orElse(null);
+            this.cols = RigSizes.getCols(rig);
+            this.rows = RigSizes.getRows(rig);
 
-        String ns = getNamespace(stack.getItem());
+            this.inv = new RigInventory(cols, rows);
 
-        // 2. Modern Mayhem: item.tag["inventory"] → ItemStackHandler compound
-        //    (GenericBackpackItem#InitInventory stores it this way).
-        //    Checked BEFORE the tag-null guard: a freshly crafted rig has no item
-        //    tag at all, so we must not exit early — we still want to return an
-        //    empty handler sized from BackpackSizes so the rig section renders.
-        if ("mm".equals(ns)) {
-            int slots = com.tarkovinventory.inventory.BackpackSizes.getCols(stack)
-                      * com.tarkovinventory.inventory.BackpackSizes.getRows(stack);
-            if (slots <= 0) slots = 9; // fallback for unregistered MM items
-            CompoundTag tag = stack.getTag();
-            if (tag != null && tag.contains("inventory", 10)) {
-                try {
-                    ItemStackHandler h = new ItemStackHandler(slots);
-                    h.deserializeNBT(tag.getCompound("inventory"));
-                    return h;
-                } catch (Exception ignored) {}
-            }
-            // No NBT yet (fresh rig) — correctly-sized empty handler
-            return new ItemStackHandler(slots);
-        }
-
-        // 3. Survivor's Arsenal: item.tag["Inventory"] → vanilla ListTag
-        //    (BackpackMenu#loadFromNBT reads getList("Inventory", 10))
-        CompoundTag tag = stack.getTag();
-        if (tag == null) return null;
-        if ("survivorsarsenal".equals(ns) && tag.contains("Inventory", 9)) {
-            int slots = getSaSlotCount(stack);
-            return buildSaHandler(tag.getList("Inventory", 10), slots);
-        }
-
-        return null;
-    }
-
-    /**
-     * Returns an IItemHandler for a rig that uses custom Tarkov rig inventory storage.
-     * This is independent of the mod's original inventory system.
-     */
-    @Nullable
-    public static IItemHandler getRigInventoryHandler(ItemStack rigItem) {
-        if (rigItem.isEmpty()) return null;
-
-        // Get rig dimensions from RigSizes registry
-        int cols = com.tarkovinventory.inventory.RigSizes.getCols(rigItem);
-        int rows = com.tarkovinventory.inventory.RigSizes.getRows(rigItem);
-
-        // Get or create the custom RigInventory from the rig's NBT
-        CompoundTag tag = rigItem.getOrCreateTag();
-        com.tarkovinventory.inventory.RigInventory rigInv;
-
-        if (tag.contains("TarkovRigInventory")) {
-    rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
-    rigInv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
-} else {
-    rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
-}
-
-        // If size changed, update it
-        if (rigInv.getCols() != cols || rigInv.getRows() != rows) {
-            rigInv.setSize(cols, rows);
-        }
-
-        // Wrap RigInventory as IItemHandler
-        return new RigInventoryItemHandler(rigInv, tag);
-    }
-
-    // ── Write operations (server-side) ───────────────────────────────────
-
-    /**
-     * Extracts one full stack from {@code slotIndex} inside a rig/backpack item
-     * and writes the change back to the item's NBT when needed.
-     *
-     * <p>Resolution order:
-     * <ol>
-     *   <li>IItemHandler capability — write-through automatically handled by Forge</li>
-     *   <li>Modern Mayhem NBT path — reads {@code ItemStackHandler}, extracts,
-     *       then serializes the modified handler back into {@code item.tag["inventory"]}</li>
-     * </ol>
-     *
-     * Returns {@link ItemStack#EMPTY} if nothing could be extracted.
-     */
-    public static ItemStack extractFromRig(ItemStack rig, int slotIndex) {
-        if (rig.isEmpty() || slotIndex < 0) return ItemStack.EMPTY;
-
-        // 1. IItemHandler capability (Forge-managed write-through)
-        var cap = rig.getCapability(ForgeCapabilities.ITEM_HANDLER);
-        if (cap.isPresent()) {
-            return cap.map(h -> {
-                if (slotIndex >= h.getSlots()) return ItemStack.EMPTY;
-                return h.extractItem(slotIndex, h.getSlotLimit(slotIndex), false);
-            }).orElse(ItemStack.EMPTY);
-        }
-
-        // 2. Modern Mayhem: deserialize, extract, serialize back
-        if ("mm".equals(getNamespace(rig.getItem()))) {
-            CompoundTag tag = rig.getOrCreateTag();
-            if (tag.contains("inventory", 10)) {
-                try {
-                    ItemStackHandler h = new ItemStackHandler();
-                    h.deserializeNBT(tag.getCompound("inventory"));
-                    if (slotIndex < h.getSlots()) {
-                        ItemStack taken = h.extractItem(slotIndex, h.getSlotLimit(slotIndex), false);
-                        if (!taken.isEmpty()) {
-                            tag.put("inventory", h.serializeNBT()); // write back
-                            return taken;
-                        }
-                    }
-                } catch (Exception ignored) {}
+            // Load saved data if present
+            if (tag.contains("TarkovRigInventory")) {
+                this.inv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
             }
         }
 
-        return ItemStack.EMPTY;
+        /**
+         * Commit changes back to item NBT.
+         * ONLY CALL ONCE per packet/action.
+         */
+        public void commit() {
+            tag.put("TarkovRigInventory", inv.serializeNBT());
+        }
+
+        /**
+         * Slot validation helper
+         */
+        public boolean isValidSlot(int slot) {
+            return slot >= 0 && slot < inv.getSlots();
+        }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // ❌ LEGACY METHOD (DEPRECATED - DO NOT USE FOR LOGIC)
+    // ─────────────────────────────────────────────────────────────
 
     /**
-     * Wraps a Survivor's Arsenal vanilla ListTag into a read-only IItemHandler.
-     * Each list entry is a CompoundTag with a "Slot" byte + full ItemStack NBT.
+     * ⚠️ ONLY FOR UI RENDERING / READ-ONLY DISPLAY
+     * DO NOT USE FOR GAME LOGIC OR EXTRACTION
      */
-    private static IItemHandler buildSaHandler(ListTag list, int slots) {
-        ItemStack[] items = new ItemStack[slots];
-        Arrays.fill(items, ItemStack.EMPTY);
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag entry = list.getCompound(i);
-            int slot = Byte.toUnsignedInt(entry.getByte("Slot"));
-            if (slot < slots) {
-                items[slot] = ItemStack.of(entry);
-            }
+    @Deprecated
+    public static RigInventory getLegacyRigInventory(ItemStack rig) {
+        int cols = RigSizes.getCols(rig);
+        int rows = RigSizes.getRows(rig);
+
+        CompoundTag tag = rig.getTag();
+        RigInventory inv = new RigInventory(cols, rows);
+
+        if (tag != null && tag.contains("TarkovRigInventory")) {
+            inv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
         }
-        return new ReadOnlyArrayItemHandler(items);
+
+        return inv;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 🔥 SAFE SYNC HELPERS (OPTIONAL USE)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Writes inventory back safely WITHOUT modifying logic flow.
+     * (Used only when you already own a transaction)
+     */
+    public static void commitRig(RigTransaction tx) {
+        tx.commit();
+    }
+}        return new ReadOnlyArrayItemHandler(items);
     }
 
     /**
