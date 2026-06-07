@@ -43,51 +43,69 @@ public class C2SRigSlotPacket {
     }
 
     public static void handle(C2SRigSlotPacket msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+    ctx.get().enqueueWork(() -> {
+        ServerPlayer player = ctx.get().getSender();
+        if (player == null) return;
 
-            // Resolve rig item
-            ItemStack rig = ItemStack.EMPTY;
+        // Resolve rig item
+        ItemStack rig = ItemStack.EMPTY;
+        if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
+            rig = CuriosCompat.getSlotItem(player, "body", 0);
+        }
+        if (rig.isEmpty()) rig = player.getItemBySlot(EquipmentSlot.CHEST);
+        if (rig.isEmpty()) return;
+
+        // Extract from custom Tarkov RigInventory
+        IItemHandler handler = BackpackCompat.getRigInventoryHandler(rig);
+        if (handler == null || msg.slotIndex >= handler.getSlots()) return;
+
+        ItemStack taken = handler.extractItem(msg.slotIndex, 64, false);
+        if (!taken.isEmpty()) {
+
+            // Sync rig changes
             if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-                rig = CuriosCompat.getSlotItem(player, "body", 0);
+                CuriosCompat.setSlot(player, "body", 0, rig);
+            } else {
+                player.setItemSlot(EquipmentSlot.CHEST, rig);
             }
-            if (rig.isEmpty()) rig = player.getItemBySlot(EquipmentSlot.CHEST);
-            if (rig.isEmpty()) return;
 
-            // Extract from custom Tarkov RigInventory (independent of mod inventory)
-            IItemHandler handler = BackpackCompat.getRigInventoryHandler(rig);
-            if (handler == null || msg.slotIndex >= handler.getSlots()) return;
+            ItemStack carried = player.containerMenu.getCarried();
 
-            ItemStack taken = handler.extractItem(msg.slotIndex, 64, false);
-            if (!taken.isEmpty()) {
-                // Re-set rig in its parent slot so Forge/Curios detect the NBT change and sync
-                if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-                    CuriosCompat.setSlot(player, "body", 0, rig);
-                } else {
-                    player.setItemSlot(EquipmentSlot.CHEST, rig);
+            if (carried.isEmpty()) {
+                player.containerMenu.setCarried(taken);
+            } else if (ItemStack.isSameItemSameTags(carried, taken)
+                    && carried.getCount() < carried.getMaxStackSize()) {
+
+                int space = carried.getMaxStackSize() - carried.getCount();
+                int amount = Math.min(space, taken.getCount());
+
+                carried.grow(amount);
+                taken.shrink(amount);
+
+                if (!taken.isEmpty() && !player.getInventory().add(taken)) {
+                    ItemEntity entity = new ItemEntity(
+                            player.level(),
+                            player.getX(),
+                            player.getY(),
+                            player.getZ(),
+                            taken
+                    );
+                    player.level().addFreshEntity(entity);
                 }
 
-                // Give item to player inventory or drop at feet
-                ItemStack carried = player.containerMenu.getCarried();
-    if (carried.isEmpty()) {
-        player.containerMenu.setCarried(extracted);   // ← put on cursor
-    } else if (ItemStack.isSameItemSameTags(carried, extracted)
-               && carried.getCount() < carried.getMaxStackSize()) {
-        // merge onto an already-held identical stack
-        int space = carried.getMaxStackSize() - carried.getCount();
-        int take  = Math.min(space, extracted.getCount());
-        carried.grow(take);
-        extracted.shrink(take);
-        if (!extracted.isEmpty() && !player.getInventory().add(extracted)) {
-            ItemEntity entity = new ItemEntity(
-                player.level(), player.getX(), player.getY(), player.getZ(), extracted);
-            player.level().addFreshEntity(entity);
+            } else if (!player.getInventory().add(taken)) {
+
+                ItemEntity entity = new ItemEntity(
+                        player.level(),
+                        player.getX(),
+                        player.getY(),
+                        player.getZ(),
+                        taken
+                );
+                player.level().addFreshEntity(entity);
+            }
         }
-    } else if (!player.getInventory().add(extracted)) {
-        // cursor is occupied with something else — try main inventory, else drop
-        ItemEntity entity = new ItemEntity(
-            player.level(), player.getX(), player.getY(), player.getZ(), extracted);
-        player.level().addFreshEntity(entity);
-    }
+    });
+
+    ctx.get().setPacketHandled(true);
 }
