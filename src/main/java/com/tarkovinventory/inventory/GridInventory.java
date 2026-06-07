@@ -149,7 +149,8 @@ public class GridInventory extends SimpleContainer {
 
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
-        tag.putInt("SavedMaxCols", MAX_COLS);   // so load() knows the stride used
+        tag.putInt("SavedMaxCols", activeCols);   // so load() knows the stride used
+        tag.putInt("SavedMaxRows", activeRows);
         ListTag list = new ListTag();
         for (int i = 0; i < MAX_CELLS; i++) {
             ItemStack stack = getItem(i);
@@ -177,6 +178,9 @@ public class GridInventory extends SimpleContainer {
 
         // The stride used when the data was saved (old saves used 8, new ones use MAX_COLS=12)
         int savedCols = tag.contains("SavedMaxCols") ? tag.getInt("SavedMaxCols") : 8;
+        int savedRows = tag.contains("SavedMaxRows") ? tag.getInt("SavedMaxRows") : savedCols;
+
+        setActiveDimensions(savedCols, savedRows);
 
         ListTag list = tag.getList("Items", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
