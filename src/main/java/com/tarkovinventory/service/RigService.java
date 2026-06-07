@@ -11,7 +11,7 @@ public final class RigService {
     private RigService() {}
 
     // ─────────────────────────────
-    // PUBLIC ENTRY POINT
+    // PUBLIC API
     // ─────────────────────────────
 
     public static ItemStack extract(ServerPlayer player, ItemStack rig, int slot, int amount) {
@@ -19,8 +19,9 @@ public final class RigService {
 
         RigInventory inv = load(rig);
 
-        ItemStack taken = inv.extract(slot, amount);
+        if (slot < 0 || slot >= inv.size()) return ItemStack.EMPTY;
 
+        ItemStack taken = inv.extract(slot, amount);
         if (taken.isEmpty()) return ItemStack.EMPTY;
 
         save(rig, inv);
@@ -34,6 +35,8 @@ public final class RigService {
 
         RigInventory inv = load(rig);
 
+        if (slot < 0 || slot >= inv.size()) return stack;
+
         ItemStack leftover = inv.set(slot, stack);
 
         save(rig, inv);
@@ -43,7 +46,7 @@ public final class RigService {
     }
 
     // ─────────────────────────────
-    // INTERNAL CORE
+    // CORE LOAD/SAVE
     // ─────────────────────────────
 
     private static RigInventory load(ItemStack rig) {
@@ -62,27 +65,7 @@ public final class RigService {
     }
 
     // ─────────────────────────────
-    // SYNC LAYER (IMPORTANT)
-    // ─────────────────────────────
-
-    private static void syncRig(ServerPlayer player, ItemStack rig) {
-
-        // Curios support (safe fallback)
-        if (com.tarkovinventory.compat.CuriosCompat.isLoaded()) {
-            ItemStack cur = com.tarkovinventory.compat.CuriosCompat.getSlotItem(player, "body", 0);
-
-            if (ItemStack.isSameItemSameTags(cur, rig)) {
-                com.tarkovinventory.compat.CuriosCompat.setSlot(player, "body", 0, rig);
-                return;
-            }
-        }
-
-        // fallback armor slot
-        player.setItemSlot(EquipmentSlot.CHEST, rig);
-    }
-
-    // ─────────────────────────────
-    // HELPER
+    // RIG RESOLUTION
     // ─────────────────────────────
 
     public static ItemStack getRig(ServerPlayer player) {
@@ -93,5 +76,23 @@ public final class RigService {
         }
 
         return player.getItemBySlot(EquipmentSlot.CHEST);
+    }
+
+    // ─────────────────────────────
+    // SYNC BACK TO PLAYER
+    // ─────────────────────────────
+
+    private static void syncRig(ServerPlayer player, ItemStack rig) {
+
+        if (com.tarkovinventory.compat.CuriosCompat.isLoaded()) {
+            ItemStack cur = com.tarkovinventory.compat.CuriosCompat.getSlotItem(player, "body", 0);
+
+            if (ItemStack.isSameItemSameTags(cur, rig)) {
+                com.tarkovinventory.compat.CuriosCompat.setSlot(player, "body", 0, rig);
+                return;
+            }
+        }
+
+        player.setItemSlot(EquipmentSlot.CHEST, rig);
     }
 }
