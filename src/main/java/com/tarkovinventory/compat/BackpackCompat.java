@@ -168,10 +168,11 @@ public final class BackpackCompat {
         com.tarkovinventory.inventory.RigInventory rigInv;
 
         if (tag.contains("TarkovRigInventory")) {
-            rigInv = com.tarkovinventory.inventory.RigInventory.unwrapFromNBT(tag);
-        } else {
-            rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
-        }
+    rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
+    rigInv.deserializeNBT(tag.getCompound("TarkovRigInventory"));
+} else {
+    rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
+}
 
         // If size changed, update it
         if (rigInv.getCols() != cols || rigInv.getRows() != rows) {
