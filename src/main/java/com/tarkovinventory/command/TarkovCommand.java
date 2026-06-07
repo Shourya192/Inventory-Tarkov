@@ -4,16 +4,19 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.tarkovinventory.capability.IPlayerEquipment;
 import com.tarkovinventory.capability.ModCapabilities;
+import com.tarkovinventory.compat.BackpackCompat;
 import com.tarkovinventory.compat.CuriosCompat;
 import com.tarkovinventory.container.TarkovInventoryMenu;
 import com.tarkovinventory.inventory.BackpackSizes;
 import com.tarkovinventory.inventory.GridInventory;
+import com.tarkovinventory.inventory.RigSizes;
 import com.tarkovinventory.registry.ModItems;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -53,6 +56,14 @@ public final class TarkovCommand {
                                 .executes(ctx -> setBackpackSize(ctx.getSource(),
                                     IntegerArgumentType.getInteger(ctx, "cols"),
                                     IntegerArgumentType.getInteger(ctx, "rows"))))))
+                    .then(Commands.literal("setrigsize")
+                        .then(Commands.argument("cols", IntegerArgumentType.integer(1, GridInventory.MAX_COLS))
+                            .then(Commands.argument("rows", IntegerArgumentType.integer(1, GridInventory.MAX_ROWS))
+                                .executes(ctx -> setRigSize(ctx.getSource(),
+                                    IntegerArgumentType.getInteger(ctx, "cols"),
+                                    IntegerArgumentType.getInteger(ctx, "rows"))))))
+                    .then(Commands.literal("riginfo")
+                        .executes(ctx -> printRigInfo(ctx.getSource())))
             );
         }
     }
@@ -250,5 +261,131 @@ public final class TarkovCommand {
         return ModCapabilities.get(player)
             .map(cap -> cap.getSlot(IPlayerEquipment.SLOT_ON_BACK))
             .orElse(ItemStack.EMPTY);
+    }
+
+    /**
+     * Returns the item in the player's rig slot.
+     * Checks Curios 'body' slot first, then falls back to vanilla CHEST.
+     */
+    private static ItemStack getRigSlotItem(ServerPlayer player) {
+        if (CuriosCompat.isLoaded()) {
+            ItemStack s = CuriosCompat.getSlotItem(player, "body", 0);
+            if (!s.isEmpty()) return s;
+        }
+        return player.getItemBySlot(EquipmentSlot.CHEST);
+    }
+
+    /**
+     * /ti riginfo — shows the equipped rig's item ID and active rig grid size.
+     */
+    private static int printRigInfo(CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            ItemStack rig = getRigSlotItem(player);
+
+            player.displayClientMessage(
+                Component.literal("§6=== Tarkov Rig Info ==="), false);
+
+            if (rig.isEmpty()) {
+                player.displayClientMessage(
+                    Component.literal("§eNo rig equipped in the Curios 'body' / armor CHEST slot."), false);
+                player.displayClientMessage(
+                    Component.literal("§7Equip a rig, then run §f/ti riginfo§7 again."), false);
+                return 1;
+            }
+
+            String itemId = RigSizes.getItemId(rig);
+            int cols = RigSizes.getCols(rig);
+            int rows = RigSizes.getRows(rig);
+            boolean registered = RigSizes.isRegistered(rig);
+
+            player.displayClientMessage(
+                Component.literal("§7Item ID: §f" + itemId), false);
+            player.displayClientMessage(
+                Component.literal("§7Name: §f" + rig.getHoverName().getString()), false);
+            player.displayClientMessage(
+                Component.literal("§7Rig Grid: §a" + cols + "§7×§a" + rows
+                    + (registered ? " §7(in RigSizes registry)" : " §e(using default 3×3 — not registered)")),
+                false);
+
+            if (!registered) {
+                player.displayClientMessage(
+                    Component.literal("§7Test a size now:  §f/ti setrigsize <cols> <rows>"), false);
+                player.displayClientMessage(
+                    Component.literal("§7To make it permanent, add to RigSizes.java:"), false);
+                player.displayClientMessage(
+                    Component.literal("§f  register(\"" + itemId + "\", cols, rows);"), false);
+            }
+
+        } catch (Exception e) {
+            try {
+                source.getPlayerOrException().displayClientMessage(
+                    Component.literal("§cError: " + e.getClass().getSimpleName() + ": " + e.getMessage()), false);
+            } catch (Exception ignored) {}
+        }
+        return 1;
+    }
+
+    /**
+     * /ti setrigsize <cols> <rows> — registers the equipped rig at the given
+     * grid size for this session and resizes its custom RigInventory.
+     * Resets when the world is reloaded.
+     */
+    private static int setRigSize(CommandSourceStack source, int cols, int rows) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            ItemStack rig = getRigSlotItem(player);
+
+            if (rig.isEmpty()) {
+                player.displayClientMessage(
+                    Component.literal("§cNo rig in the Curios 'body' / armor CHEST slot. Equip one first."), false);
+                return 0;
+            }
+
+            String itemId = RigSizes.getItemId(rig);
+            if (itemId.equals("(empty)") || itemId.equals("unknown")) {
+                player.displayClientMessage(
+                    Component.literal("§cCouldn't get an item ID for that rig."), false);
+                return 0;
+            }
+
+            // Register the size for this session
+            RigSizes.register(itemId, cols, rows);
+
+            // Resize the existing custom RigInventory stored in the rig's NBT
+            net.minecraft.nbt.CompoundTag tag = rig.getOrCreateTag();
+            com.tarkovinventory.inventory.RigInventory rigInv;
+            if (tag.contains("TarkovRigInventory")) {
+                rigInv = com.tarkovinventory.inventory.RigInventory.unwrapFromNBT(tag);
+            } else {
+                rigInv = new com.tarkovinventory.inventory.RigInventory(cols, rows);
+            }
+            rigInv.setSize(cols, rows);
+            tag.put("TarkovRigInventory", rigInv.serializeNBT());
+
+            // Re-set rig in slot to sync NBT to client
+            if (CuriosCompat.isLoaded() && !CuriosCompat.getSlotItem(player, "body", 0).isEmpty()) {
+                CuriosCompat.setSlot(player, "body", 0, rig);
+            } else {
+                player.setItemSlot(EquipmentSlot.CHEST, rig);
+            }
+
+            player.displayClientMessage(
+                Component.literal("§aRegistered rig §f\"" + itemId + "\"§a → §f"
+                    + cols + "§a×§f" + rows + "§a grid for this session."), false);
+            player.displayClientMessage(
+                Component.literal("§7Reopen the inventory (§f/ti§7) to see it."), false);
+            player.displayClientMessage(
+                Component.literal("§7To make it permanent, add to RigSizes.java:"), false);
+            player.displayClientMessage(
+                Component.literal("§f  register(\"" + itemId + "\", " + cols + ", " + rows + ");"), false);
+
+        } catch (Exception e) {
+            try {
+                source.getPlayerOrException().displayClientMessage(
+                    Component.literal("§cError: " + e.getClass().getSimpleName() + ": " + e.getMessage()), false);
+            } catch (Exception ignored) {}
+        }
+        return 1;
     }
 }
