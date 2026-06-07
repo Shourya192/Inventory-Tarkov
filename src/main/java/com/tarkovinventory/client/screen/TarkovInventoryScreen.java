@@ -647,9 +647,6 @@ private boolean handleRigSlotClick(int mx, int my, int button) {
             ItemStack copy = dragging.copy();
             copy.setCount(1);
 
-            // Optimistic client update
-            handler.insertItem(rigHoveredSlot, copy, false);
-
             // Server-authoritative: persist placement and remove source item
             ModNetwork.CHANNEL.sendToServer(
                     new com.tarkovinventory.network.C2SRigPlacePacket(
@@ -668,10 +665,7 @@ private boolean handleRigSlotClick(int mx, int my, int button) {
     // TAKE ITEM FROM RIG (custom inventory)
     if (handler.getStackInSlot(rigHoveredSlot).isEmpty())
         return true;
-
-    // Optimistic client update
-    handler.extractItem(rigHoveredSlot, 64, false);
-
+    
     // Server-authoritative: extract from custom rig and give to player
     ModNetwork.CHANNEL.sendToServer(
             new C2SRigSlotPacket(rigHoveredSlot, rigHoveredSource));
