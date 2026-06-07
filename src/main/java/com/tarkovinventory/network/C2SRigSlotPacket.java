@@ -1,12 +1,12 @@
 package com.tarkovinventory.network;
 
 import com.tarkovinventory.compat.BackpackCompat;
-import com.tarkovinventory.compat.BackpackCompat.RigTransaction;
 import com.tarkovinventory.compat.CuriosCompat;
+import com.tarkovinventory.inventory.RigInventory;
+import com.tarkovinventory.service.RigService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -15,19 +15,19 @@ import java.util.function.Supplier;
 public class C2SRigSlotPacket {
 
     public static final byte SRC_CURIOS = 0;
-    public static final byte SRC_ARMOR = 1;
+    public static final byte SRC_ARMOR  = 1;
 
-    private final int slotIndex;
-    private final byte rigSource;
+    private final int slot;
+    private final byte source;
 
-    public C2SRigSlotPacket(int slotIndex, byte rigSource) {
-        this.slotIndex = slotIndex;
-        this.rigSource = rigSource;
+    public C2SRigSlotPacket(int slot, byte source) {
+        this.slot = slot;
+        this.source = source;
     }
 
     public static void encode(C2SRigSlotPacket msg, FriendlyByteBuf buf) {
-        buf.writeVarInt(msg.slotIndex);
-        buf.writeByte(msg.rigSource);
+        buf.writeVarInt(msg.slot);
+        buf.writeByte(msg.source);
     }
 
     public static C2SRigSlotPacket decode(FriendlyByteBuf buf) {
@@ -40,28 +40,28 @@ public class C2SRigSlotPacket {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
 
-            ItemStack rig = ItemStack.EMPTY;
-
-            if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-                rig = CuriosCompat.getSlotItem(player, "body", 0);
-            }
-
-            if (rig.isEmpty()) {
-                rig = player.getItemBySlot(EquipmentSlot.CHEST);
-            }
-
+            // ─────────────────────────────
+            // GET RIG (single source of truth)
+            // ─────────────────────────────
+            ItemStack rig = RigService.getRig(player);
             if (rig.isEmpty()) return;
 
-            RigTransaction tx = BackpackCompat.openRig(rig);
+            // ─────────────────────────────
+            // VALIDATE SLOT
+            // ─────────────────────────────
+            RigInventory inv = RigServiceTestLoad(rig); // temporary internal load
+            if (msg.slot < 0 || msg.slot >= inv.size()) return;
 
-            if (!tx.isValidSlot(msg.slotIndex)) return;
-
-            ItemStack taken = tx.inv.extractItem(msg.slotIndex, 64, false);
+            // ─────────────────────────────
+            // SERVER AUTHORITATIVE ACTION
+            // ─────────────────────────────
+            ItemStack taken = RigService.extract(player, rig, msg.slot, 64);
             if (taken.isEmpty()) return;
 
+            // ─────────────────────────────
+            // GIVE ITEM TO PLAYER
+            // ─────────────────────────────
             ItemStack carried = player.containerMenu.getCarried();
-
-            ItemStack leftover = ItemStack.EMPTY;
 
             if (carried.isEmpty()) {
                 player.containerMenu.setCarried(taken);
@@ -73,38 +73,26 @@ public class C2SRigSlotPacket {
                 carried.grow(move);
                 taken.shrink(move);
 
-                leftover = taken;
-
-            } else {
-                leftover = taken;
-            }
-
-            if (!leftover.isEmpty()) {
-                if (!player.getInventory().add(leftover)) {
-                    drop(player, leftover);
+                if (!taken.isEmpty()) {
+                    player.getInventory().add(taken);
                 }
-            }
 
-            tx.commit();
-
-            if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-                CuriosCompat.setSlot(player, "body", 0, rig);
             } else {
-                player.setItemSlot(EquipmentSlot.CHEST, rig);
+                if (!player.getInventory().add(taken)) {
+                    player.drop(taken, false);
+                }
             }
         });
 
         ctx.get().setPacketHandled(true);
     }
 
-    private static void drop(ServerPlayer player, ItemStack stack) {
-        ItemEntity entity = new ItemEntity(
-                player.level(),
-                player.getX(),
-                player.getY(),
-                player.getZ(),
-                stack
+    // ─────────────────────────────
+    // TEMP FIX HELPER (we remove later)
+    // ─────────────────────────────
+    private static RigInventory RigServiceTestLoad(ItemStack rig) {
+        return com.tarkovinventory.inventory.RigInventory.load(
+                rig.getOrCreateTag().getCompound("TarkovRigInventory")
         );
-        player.level().addFreshEntity(entity);
     }
 }
