@@ -350,13 +350,24 @@ public final class BackpackCompat {
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            ItemStack extracted = rigInv.extractItem(slot, amount);
-            if (!extracted.isEmpty() && !simulate) {
-                saveToNBT();
-            }
-            return extracted;
-        }
+public ItemStack extractItem(int slot, int amount, boolean simulate) {
+    if (simulate) {
+        ItemStack stack = rigInv.getItem(slot);
+        if (stack.isEmpty()) return ItemStack.EMPTY;
+
+        ItemStack copy = stack.copy();
+        copy.setCount(Math.min(amount, copy.getCount()));
+        return copy;
+    }
+
+    ItemStack extracted = rigInv.extractItem(slot, amount);
+
+    if (!extracted.isEmpty()) {
+        saveToNBT();
+    }
+
+    return extracted;
+}
 
         @Override
         public int getSlotLimit(int slot) {
