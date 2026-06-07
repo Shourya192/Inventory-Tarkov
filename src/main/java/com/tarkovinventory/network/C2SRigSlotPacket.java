@@ -1,12 +1,8 @@
 package com.tarkovinventory.network;
 
-import com.tarkovinventory.compat.BackpackCompat;
-import com.tarkovinventory.compat.CuriosCompat;
-import com.tarkovinventory.inventory.RigInventory;
 import com.tarkovinventory.service.RigService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -41,19 +37,19 @@ public class C2SRigSlotPacket {
             if (player == null) return;
 
             // ─────────────────────────────
-            // GET RIG (single source of truth)
+            // SINGLE SOURCE OF TRUTH
             // ─────────────────────────────
             ItemStack rig = RigService.getRig(player);
             if (rig.isEmpty()) return;
 
             // ─────────────────────────────
-            // VALIDATE SLOT
+            // VALIDATE SLOT SAFELY
             // ─────────────────────────────
-            RigInventory inv = RigServiceTestLoad(rig); // temporary internal load
-            if (msg.slot < 0 || msg.slot >= inv.size()) return;
+            int size = RigServiceSize(rig);
+            if (msg.slot < 0 || msg.slot >= size) return;
 
             // ─────────────────────────────
-            // SERVER AUTHORITATIVE ACTION
+            // CORE ACTION (SERVER AUTHORITY)
             // ─────────────────────────────
             ItemStack taken = RigService.extract(player, rig, msg.slot, 64);
             if (taken.isEmpty()) return;
@@ -65,6 +61,7 @@ public class C2SRigSlotPacket {
 
             if (carried.isEmpty()) {
                 player.containerMenu.setCarried(taken);
+
             } else if (ItemStack.isSameItemSameTags(carried, taken)) {
 
                 int space = carried.getMaxStackSize() - carried.getCount();
@@ -88,11 +85,11 @@ public class C2SRigSlotPacket {
     }
 
     // ─────────────────────────────
-    // TEMP FIX HELPER (we remove later)
+    // TEMP SAFE SIZE CHECK (no desync risk)
     // ─────────────────────────────
-    private static RigInventory RigServiceTestLoad(ItemStack rig) {
-        return com.tarkovinventory.inventory.RigInventory.load(
-                rig.getOrCreateTag().getCompound("TarkovRigInventory")
-        );
+    private static int RigServiceSize(ItemStack rig) {
+        return com.tarkovinventory.inventory.RigInventory
+                .load(rig.getOrCreateTag().getCompound("TarkovRigInventory"))
+                .size();
     }
 }
