@@ -69,12 +69,25 @@ public class C2SRigSlotPacket {
                 }
 
                 // Give item to player inventory or drop at feet
-                if (!player.getInventory().add(taken)) {
-                    player.level().addFreshEntity(new ItemEntity(
-                            player.level(), player.getX(), player.getY(), player.getZ(), taken));
-                }
-            }
-        });
-        ctx.get().setPacketHandled(true);
+                ItemStack carried = player.containerMenu.getCarried();
+    if (carried.isEmpty()) {
+        player.containerMenu.setCarried(extracted);   // ← put on cursor
+    } else if (ItemStack.isSameItemSameTags(carried, extracted)
+               && carried.getCount() < carried.getMaxStackSize()) {
+        // merge onto an already-held identical stack
+        int space = carried.getMaxStackSize() - carried.getCount();
+        int take  = Math.min(space, extracted.getCount());
+        carried.grow(take);
+        extracted.shrink(take);
+        if (!extracted.isEmpty() && !player.getInventory().add(extracted)) {
+            ItemEntity entity = new ItemEntity(
+                player.level(), player.getX(), player.getY(), player.getZ(), extracted);
+            player.level().addFreshEntity(entity);
+        }
+    } else if (!player.getInventory().add(extracted)) {
+        // cursor is occupied with something else — try main inventory, else drop
+        ItemEntity entity = new ItemEntity(
+            player.level(), player.getX(), player.getY(), player.getZ(), extracted);
+        player.level().addFreshEntity(entity);
     }
 }
