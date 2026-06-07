@@ -1,31 +1,23 @@
 package com.tarkovinventory.network;
 
 import com.tarkovinventory.compat.BackpackCompat;
+import com.tarkovinventory.compat.BackpackCompat.RigTransaction;
 import com.tarkovinventory.compat.CuriosCompat;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-/**
- * Client → Server: take one item from a slot inside the player's equipped rig
- * (curios "body" slot, or vanilla armor CHEST as fallback).
- *
- * Uses the custom Tarkov RigInventory stored in the rig item's NBT,
- * independent of the rig's original mod inventory.
- */
 public class C2SRigSlotPacket {
 
-    /** Which slot holds the rig. */
     public static final byte SRC_CURIOS = 0;
     public static final byte SRC_ARMOR  = 1;
 
-    private final int  slotIndex;
+    private final int slotIndex;
     private final byte rigSource;
 
     public C2SRigSlotPacket(int slotIndex, byte rigSource) {
@@ -43,70 +35,96 @@ public class C2SRigSlotPacket {
     }
 
     public static void handle(C2SRigSlotPacket msg, Supplier<NetworkEvent.Context> ctx) {
-    ctx.get().enqueueWork(() -> {
-        ServerPlayer player = ctx.get().getSender();
-        if (player == null) return;
 
-        // Resolve rig item
-        ItemStack rig = ItemStack.EMPTY;
-        if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
-            rig = CuriosCompat.getSlotItem(player, "body", 0);
-        }
-        if (rig.isEmpty()) rig = player.getItemBySlot(EquipmentSlot.CHEST);
-        if (rig.isEmpty()) return;
+        ctx.get().enqueueWork(() -> {
+            ServerPlayer player = ctx.get().getSender();
+            if (player == null) return;
 
-        // Extract from custom Tarkov RigInventory
-        IItemHandler handler = BackpackCompat.getRigInventoryHandler(rig);
-        if (handler == null || msg.slotIndex >= handler.getSlots()) return;
+            // ─────────────────────────────────────────────
+            // 1. Resolve rig
+            // ─────────────────────────────────────────────
+            ItemStack rig = ItemStack.EMPTY;
 
-        ItemStack taken = handler.extractItem(msg.slotIndex, 64, false);
-        if (!taken.isEmpty()) {
+            if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
+                rig = CuriosCompat.getSlotItem(player, "body", 0);
+            }
 
-            // Sync rig changes
+            if (rig.isEmpty()) {
+                rig = player.getItemBySlot(EquipmentSlot.CHEST);
+            }
+
+            if (rig.isEmpty()) return;
+
+            // ─────────────────────────────────────────────
+            // 2. SINGLE SOURCE OF TRUTH (TRANSACTION)
+            // ─────────────────────────────────────────────
+            RigTransaction tx = BackpackCompat.openRig(rig);
+
+            if (!tx.isValidSlot(msg.slotIndex)) return;
+
+            // ─────────────────────────────────────────────
+            // 3. Extract item (ONLY ONCE)
+            // ─────────────────────────────────────────────
+            ItemStack taken = tx.inv.extractItem(msg.slotIndex, 64, false);
+            if (taken.isEmpty()) return;
+
+            // ─────────────────────────────────────────────
+            // 4. Insert into player inventory safely
+            // ─────────────────────────────────────────────
+            ItemStack carried = player.containerMenu.getCarried();
+
+            ItemStack leftover = ItemStack.EMPTY;
+
+            if (carried.isEmpty()) {
+                player.containerMenu.setCarried(taken);
+            } else if (ItemStack.isSameItemSameTags(carried, taken)) {
+
+                int space = carried.getMaxStackSize() - carried.getCount();
+                int move = Math.min(space, taken.getCount());
+
+                carried.grow(move);
+                taken.shrink(move);
+
+                if (!taken.isEmpty()) {
+                    leftover = taken;
+                }
+
+            } else {
+                leftover = taken;
+            }
+
+            if (!leftover.isEmpty()) {
+                if (!player.getInventory().add(leftover)) {
+                    drop(player, leftover);
+                }
+            }
+
+            // ─────────────────────────────────────────────
+            // 5. COMMIT EXACTLY ONCE (CRITICAL FIX)
+            // ─────────────────────────────────────────────
+            tx.commit();
+
+            // ─────────────────────────────────────────────
+            // 6. Sync back to correct slot holder
+            // ─────────────────────────────────────────────
             if (msg.rigSource == SRC_CURIOS && CuriosCompat.isLoaded()) {
                 CuriosCompat.setSlot(player, "body", 0, rig);
             } else {
                 player.setItemSlot(EquipmentSlot.CHEST, rig);
             }
+        });
 
-            ItemStack carried = player.containerMenu.getCarried();
+        ctx.get().setPacketHandled(true);
+    }
 
-            if (carried.isEmpty()) {
-                player.containerMenu.setCarried(taken);
-            } else if (ItemStack.isSameItemSameTags(carried, taken)
-                    && carried.getCount() < carried.getMaxStackSize()) {
-
-                int space = carried.getMaxStackSize() - carried.getCount();
-                int amount = Math.min(space, taken.getCount());
-
-                carried.grow(amount);
-                taken.shrink(amount);
-
-                if (!taken.isEmpty() && !player.getInventory().add(taken)) {
-                    ItemEntity entity = new ItemEntity(
-                            player.level(),
-                            player.getX(),
-                            player.getY(),
-                            player.getZ(),
-                            taken
-                    );
-                    player.level().addFreshEntity(entity);
-                }
-
-            } else if (!player.getInventory().add(taken)) {
-
-                ItemEntity entity = new ItemEntity(
-                        player.level(),
-                        player.getX(),
-                        player.getY(),
-                        player.getZ(),
-                        taken
-                );
-                player.level().addFreshEntity(entity);
-            }
-        }
-    });
-
-    ctx.get().setPacketHandled(true);
-}
+    private static void drop(ServerPlayer player, ItemStack stack) {
+        ItemEntity entity = new ItemEntity(
+                player.level(),
+                player.getX(),
+                player.getY(),
+                player.getZ(),
+                stack
+        );
+        player.level().addFreshEntity(entity);
+    }
 }

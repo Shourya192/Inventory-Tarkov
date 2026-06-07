@@ -2,140 +2,208 @@ package com.tarkovinventory.inventory;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Custom NBT-serialized inventory for rig items.
- * Stores items independently of the rig's original mod inventory.
- * Each rig item has its own RigInventory instance stored in player capability.
+ * DUPE-SAFE RULES:
+ * - No method may leave inventory in half-mutated state
+ * - All operations must be atomic
+ * - Slot access is always validated
  */
 public class RigInventory {
 
     private ItemStack[] items;
     private int cols;
     private int rows;
-    private static final String NBT_KEY = "TarkovRigInventory";
-    private static final String NBT_ITEMS = "Items";
-    private static final String NBT_COLS = "Cols";
-    private static final String NBT_ROWS = "Rows";
 
     public RigInventory(int cols, int rows) {
-        this.cols = Math.min(cols, GridInventory.MAX_COLS);
-        this.rows = Math.min(rows, GridInventory.MAX_ROWS);
-        this.items = new ItemStack[this.cols * this.rows];
+        this.cols = Math.max(1, cols);
+        this.rows = Math.max(1, rows);
+        this.items = new ItemStack[getSlots()];
         for (int i = 0; i < items.length; i++) {
             items[i] = ItemStack.EMPTY;
         }
     }
 
-    public int getCols() { return cols; }
-    public int getRows() { return rows; }
-    public int getSlots() { return items.length; }
+    // ─────────────────────────────────────────────
+    // BASIC INFO
+    // ─────────────────────────────────────────────
+
+    public int getCols() {
+        return cols;
+    }
+
+    public int getRows() {
+        return rows;
+    }
+
+    public int getSlots() {
+        return cols * rows;
+    }
+
+    // ─────────────────────────────────────────────
+    // SAFE SLOT ACCESS
+    // ─────────────────────────────────────────────
 
     public ItemStack getItem(int slot) {
-        if (slot < 0 || slot >= items.length) return ItemStack.EMPTY;
+        if (!isValid(slot)) return ItemStack.EMPTY;
         return items[slot];
     }
 
-    public void setItem(int slot, ItemStack stack) {
-        if (slot >= 0 && slot < items.length) {
-            items[slot] = stack;
+    // ─────────────────────────────────────────────
+    // ATOMIC INSERT
+    // ─────────────────────────────────────────────
+
+    public ItemStack insertItem(int slot, ItemStack stack) {
+        if (stack.isEmpty() || !isValid(slot)) {
+            return stack;
         }
+
+        ItemStack existing = items[slot];
+
+        // empty slot → full insert
+        if (existing.isEmpty()) {
+            items[slot] = stack.copy();
+            return ItemStack.EMPTY;
+        }
+
+        // same item → merge safely
+        if (ItemStack.isSameItemSameTags(existing, stack)) {
+
+            int max = Math.min(existing.getMaxStackSize(), getSlotLimit(slot));
+            int space = max - existing.getCount();
+
+            if (space <= 0) return stack;
+
+            int move = Math.min(space, stack.getCount());
+
+            existing.grow(move);
+            stack.shrink(move);
+
+            return stack;
+        }
+
+        // cannot insert
+        return stack;
     }
+
+    // ─────────────────────────────────────────────
+    // ATOMIC EXTRACT (CRITICAL FIX AREA)
+    // ─────────────────────────────────────────────
 
     public ItemStack extractItem(int slot, int amount) {
-        if (slot < 0 || slot >= items.length) return ItemStack.EMPTY;
-        ItemStack stack = items[slot];
-        if (stack.isEmpty()) return ItemStack.EMPTY;
+        if (!isValid(slot) || amount <= 0) {
+            return ItemStack.EMPTY;
+        }
 
-        ItemStack extracted = stack.split(amount);
-        if (stack.isEmpty()) {
+        ItemStack existing = items[slot];
+        if (existing.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
+        int extracted = Math.min(amount, existing.getCount());
+
+        ItemStack result = existing.copy();
+        result.setCount(extracted);
+
+        existing.shrink(extracted);
+
+        if (existing.getCount() <= 0) {
             items[slot] = ItemStack.EMPTY;
         }
-        return extracted;
+
+        return result;
     }
 
-    public void insertItem(int slot, ItemStack stack) {
-        if (slot < 0 || slot >= items.length) return;
-        if (items[slot].isEmpty()) {
-            items[slot] = stack.copy();
-        } else if (ItemStack.isSameItemSameTags(items[slot], stack)) {
-            items[slot].grow(stack.getCount());
-        }
+    // ─────────────────────────────────────────────
+    // SLOT LIMIT
+    // ─────────────────────────────────────────────
+
+    public int getSlotLimit(int slot) {
+        return 64;
     }
+
+    // ─────────────────────────────────────────────
+    // VALIDATION (IMPORTANT)
+    // ─────────────────────────────────────────────
+
+    public boolean isValid(int slot) {
+        return slot >= 0 && slot < items.length;
+    }
+
+    // ─────────────────────────────────────────────
+    // RESIZE (SAFE VERSION)
+    // ─────────────────────────────────────────────
 
     public void setSize(int newCols, int newRows) {
-        newCols = Math.min(newCols, GridInventory.MAX_COLS);
-        newRows = Math.min(newRows, GridInventory.MAX_ROWS);
+        int newSize = Math.max(1, newCols) * Math.max(1, newRows);
 
-        if (newCols == this.cols && newRows == this.rows) return;
+        ItemStack[] newItems = new ItemStack[newSize];
+        for (int i = 0; i < newSize; i++) {
+            newItems[i] = ItemStack.EMPTY;
+        }
 
-        ItemStack[] oldItems = this.items;
+        int copy = Math.min(items.length, newSize);
+
+        for (int i = 0; i < copy; i++) {
+            newItems[i] = items[i];
+        }
+
         this.cols = newCols;
         this.rows = newRows;
-        this.items = new ItemStack[newCols * newRows];
-        for (int i = 0; i < items.length; i++) {
-            items[i] = ItemStack.EMPTY;
-        }
-
-        // Transfer items from old array to new (in order, up to capacity)
-        int transferCount = Math.min(oldItems.length, this.items.length);
-        for (int i = 0; i < transferCount; i++) {
-            if (!oldItems[i].isEmpty()) {
-                items[i] = oldItems[i].copy();
-            }
-        }
+        this.items = newItems;
     }
+
+    // ─────────────────────────────────────────────
+    // NBT SAVE
+    // ─────────────────────────────────────────────
 
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
-        tag.putInt(NBT_COLS, cols);
-        tag.putInt(NBT_ROWS, rows);
+        ListTag list = new ListTag();
 
-        ListTag itemsList = new ListTag();
         for (int i = 0; i < items.length; i++) {
             if (!items[i].isEmpty()) {
-                CompoundTag itemTag = new CompoundTag();
-                itemTag.putInt("Slot", i);
-                items[i].save(itemTag);
-                itemsList.add(itemTag);
+                CompoundTag entry = new CompoundTag();
+                entry.putByte("Slot", (byte) i);
+                items[i].save(entry);
+                list.add(entry);
             }
         }
-        tag.put(NBT_ITEMS, itemsList);
+
+        tag.put("Items", list);
+        tag.putInt("Cols", cols);
+        tag.putInt("Rows", rows);
+
         return tag;
     }
 
+    // ─────────────────────────────────────────────
+    // NBT LOAD (SAFE)
+    // ─────────────────────────────────────────────
+
     public void deserializeNBT(CompoundTag tag) {
-        if (tag.contains(NBT_COLS)) this.cols = tag.getInt(NBT_COLS);
-        if (tag.contains(NBT_ROWS)) this.rows = tag.getInt(NBT_ROWS);
-        this.items = new ItemStack[cols * rows];
-        for (int i = 0; i < items.length; i++) {
+
+        this.cols = tag.getInt("Cols");
+        this.rows = tag.getInt("Rows");
+
+        int size = Math.max(1, cols) * Math.max(1, rows);
+        this.items = new ItemStack[size];
+
+        for (int i = 0; i < size; i++) {
             items[i] = ItemStack.EMPTY;
         }
 
-        ListTag itemsList = tag.getList(NBT_ITEMS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < itemsList.size(); i++) {
-            CompoundTag itemTag = itemsList.getCompound(i);
-            int slot = itemTag.getInt("Slot");
+        ListTag list = tag.getList("Items", 10);
+
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+
+            int slot = entry.getByte("Slot") & 255;
+
             if (slot >= 0 && slot < items.length) {
-                items[slot] = ItemStack.of(itemTag);
+                items[slot] = ItemStack.of(entry);
             }
         }
-    }
-
-    public static CompoundTag wrapInNBT(RigInventory inv) {
-        CompoundTag wrapper = new CompoundTag();
-        wrapper.put(NBT_KEY, inv.serializeNBT());
-        return wrapper;
-    }
-
-    public static RigInventory unwrapFromNBT(CompoundTag wrapper) {
-        if (!wrapper.contains(NBT_KEY)) {
-            return new RigInventory(RigSizes.DEFAULT_COLS, RigSizes.DEFAULT_ROWS);
-        }
-        RigInventory inv = new RigInventory(RigSizes.DEFAULT_COLS, RigSizes.DEFAULT_ROWS);
-        inv.deserializeNBT(wrapper.getCompound(NBT_KEY));
-        return inv;
     }
 }
