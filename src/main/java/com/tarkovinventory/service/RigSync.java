@@ -26,17 +26,17 @@ public final class RigSync {
 
             if (ItemStack.isSameItemSameTags(cur, rig)) {
                 CuriosCompat.setSlot(player, "body", 0, rig);
-                syncPlayer(player);
+                sync(player);
                 return;
             }
         }
 
         player.setItemSlot(EquipmentSlot.CHEST, rig);
-        syncPlayer(player);
+        sync(player);
     }
 
-    private static void syncPlayer(ServerPlayer player) {
-        player.inventoryMenu.broadcastChanges();
-        player.inventory.setChanged();
+    private static void sync(ServerPlayer player) {
+        player.containerMenu.broadcastChanges();
+        player.getInventory().setChanged();
     }
 }
