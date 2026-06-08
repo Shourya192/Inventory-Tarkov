@@ -86,6 +86,14 @@ public final class RigService {
         tag.put("TarkovRigInventory", inv.serializeNBT());
     }
 
+    public static RigInventory loadPublic(ItemStack rig) {
+    return load(rig);
+}
+
+public static void savePublic(ItemStack rig, RigInventory inv) {
+    save(rig, inv);
+}
+
     // ─────────────────────────────
     // SYNC BACK
     // ─────────────────────────────
