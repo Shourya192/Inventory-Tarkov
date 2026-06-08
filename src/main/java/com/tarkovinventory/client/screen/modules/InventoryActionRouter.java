@@ -6,19 +6,14 @@ import com.tarkovinventory.network.ModNetwork;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * All packet sending is centralized here.
- * GUI NEVER talks to packets directly.
+ * Central client → server action bridge
  */
 public final class InventoryActionRouter {
 
     private InventoryActionRouter() {}
 
-    // ───────── Rig actions ─────────
-
     public static void takeFromRig(int slot) {
-        ModNetwork.CHANNEL.sendToServer(
-                new C2SRigSlotPacket(slot)
-        );
+        ModNetwork.CHANNEL.sendToServer(new C2SRigSlotPacket(slot));
     }
 
     public static void placeIntoRig(int slot, ItemStack stack) {
