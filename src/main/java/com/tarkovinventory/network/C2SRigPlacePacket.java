@@ -1,6 +1,6 @@
 package com.tarkovinventory.network;
 
-import com.tarkovinventory.service.RigController;
+import com.tarkovinventory.service.RigService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -8,19 +8,23 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
+/**
+ * Client → Server
+ * Place item into rig slot
+ */
 public class C2SRigPlacePacket {
 
-    private final int slotIndex;
-    private final ItemStack itemToPlace;
+    private final int slot;
+    private final ItemStack stack;
 
-    public C2SRigPlacePacket(int slotIndex, ItemStack itemToPlace) {
-        this.slotIndex = slotIndex;
-        this.itemToPlace = itemToPlace;
+    public C2SRigPlacePacket(int slot, ItemStack stack) {
+        this.slot = slot;
+        this.stack = stack;
     }
 
     public static void encode(C2SRigPlacePacket msg, FriendlyByteBuf buf) {
-        buf.writeVarInt(msg.slotIndex);
-        buf.writeItem(msg.itemToPlace);
+        buf.writeVarInt(msg.slot);
+        buf.writeItem(msg.stack);
     }
 
     public static C2SRigPlacePacket decode(FriendlyByteBuf buf) {
@@ -28,22 +32,15 @@ public class C2SRigPlacePacket {
     }
 
     public static void handle(C2SRigPlacePacket msg, Supplier<NetworkEvent.Context> ctx) {
-
         ctx.get().enqueueWork(() -> {
-
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
-            if (msg.itemToPlace.isEmpty()) return;
+            if (msg.stack.isEmpty()) return;
 
-            // SINGLE AUTHORITY ACTION
-            ItemStack leftover = RigController.insert(player, msg.slotIndex, msg.itemToPlace.copy());
+            ItemStack rig = RigService.getRig(player);
+            if (rig.isEmpty()) return;
 
-            // if something couldn't be inserted → return it to player
-            if (!leftover.isEmpty()) {
-                if (!player.getInventory().add(leftover)) {
-                    player.drop(leftover, false);
-                }
-            }
+            RigService.insert(player, rig, msg.slot, msg.stack.copy());
         });
 
         ctx.get().setPacketHandled(true);
