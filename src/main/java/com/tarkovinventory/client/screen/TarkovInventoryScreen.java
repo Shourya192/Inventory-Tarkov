@@ -62,6 +62,18 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         super.render(g, mouseX, mouseY, partialTick);
     }
 
+    @Override
+protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+
+    guiGraphics.fill(
+            leftPos,
+            topPos,
+            leftPos + imageWidth,
+            topPos + imageHeight,
+            0xFF101010
+    );
+}
+
     // ───────────────────────────────────────
     // MOUSE HANDLING (forwarding only)
     // ───────────────────────────────────────
