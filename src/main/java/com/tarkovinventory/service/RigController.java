@@ -13,14 +13,16 @@ public final class RigController {
         ItemStack rig = RigSync.getRig(player);
         if (rig.isEmpty()) return ItemStack.EMPTY;
 
-        RigInventory inv = RigService.load(rig);
+        // FIX: use public API
+        RigInventory inv = RigService.loadPublic(rig);
 
         if (slot < 0 || slot >= inv.getSlots()) return ItemStack.EMPTY;
 
         ItemStack taken = inv.extractItem(slot, amount);
         if (taken.isEmpty()) return ItemStack.EMPTY;
 
-        RigService.save(rig, inv);
+        // FIX: use public API
+        RigService.savePublic(rig, inv);
         RigSync.syncRig(player, rig);
 
         return taken;
@@ -31,13 +33,15 @@ public final class RigController {
         ItemStack rig = RigSync.getRig(player);
         if (rig.isEmpty() || stack.isEmpty()) return stack;
 
-        RigInventory inv = RigService.load(rig);
+        // FIX: use public API
+        RigInventory inv = RigService.loadPublic(rig);
 
         if (slot < 0 || slot >= inv.getSlots()) return stack;
 
         ItemStack leftover = inv.insertItem(slot, stack);
 
-        RigService.save(rig, inv);
+        // FIX: use public API
+        RigService.savePublic(rig, inv);
         RigSync.syncRig(player, rig);
 
         return leftover;
