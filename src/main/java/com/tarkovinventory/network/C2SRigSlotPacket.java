@@ -1,6 +1,6 @@
 package com.tarkovinventory.network;
 
-import com.tarkovinventory.service.RigController;
+import com.tarkovinventory.service.RigService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -8,6 +8,10 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
+/**
+ * Client → Server
+ * Take item from rig slot
+ */
 public class C2SRigSlotPacket {
 
     private final int slot;
@@ -25,19 +29,14 @@ public class C2SRigSlotPacket {
     }
 
     public static void handle(C2SRigSlotPacket msg, Supplier<NetworkEvent.Context> ctx) {
-
         ctx.get().enqueueWork(() -> {
-
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
 
-            ItemStack taken = RigController.extract(player, msg.slot, 64);
+            ItemStack rig = RigService.getRig(player);
+            if (rig.isEmpty()) return;
 
-            if (!taken.isEmpty()) {
-                if (!player.getInventory().add(taken)) {
-                    player.drop(taken, false);
-                }
-            }
+            RigService.extract(player, rig, msg.slot, 64);
         });
 
         ctx.get().setPacketHandled(true);
