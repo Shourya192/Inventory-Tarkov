@@ -10,10 +10,6 @@ public final class RigController {
 
     public static ItemStack extract(ServerPlayer player, int slot, int amount) {
 
-        if (!RigLock.tryLock(player.getUUID())) return ItemStack.EMPTY;
-
-        RigTransaction tx = new RigTransaction();
-
         ItemStack rig = RigSync.getRig(player);
         if (rig.isEmpty()) return ItemStack.EMPTY;
 
@@ -24,19 +20,13 @@ public final class RigController {
         ItemStack taken = inv.extractItem(slot, amount);
         if (taken.isEmpty()) return ItemStack.EMPTY;
 
-        tx.add(() -> RigService.save(rig, inv));
-        tx.add(() -> RigSync.syncRig(player, rig));
-
-        tx.commit();
+        RigService.save(rig, inv);
+        RigSync.syncRig(player, rig);
 
         return taken;
     }
 
     public static ItemStack insert(ServerPlayer player, int slot, ItemStack stack) {
-
-        if (!RigLock.tryLock(player.getUUID())) return stack;
-
-        RigTransaction tx = new RigTransaction();
 
         ItemStack rig = RigSync.getRig(player);
         if (rig.isEmpty() || stack.isEmpty()) return stack;
@@ -47,10 +37,8 @@ public final class RigController {
 
         ItemStack leftover = inv.insertItem(slot, stack);
 
-        tx.add(() -> RigService.save(rig, inv));
-        tx.add(() -> RigSync.syncRig(player, rig));
-
-        tx.commit();
+        RigService.save(rig, inv);
+        RigSync.syncRig(player, rig);
 
         return leftover;
     }
