@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 public class C2SRigSlotPacket {
 
     public static final byte SRC_CURIOS = 0;
-    public static final byte SRC_ARMOR  = 1;
+    public static final byte SRC_ARMOR = 1;
 
     private final int slot;
     private final byte source;
@@ -60,6 +60,7 @@ public class C2SRigSlotPacket {
             ItemStack carried = player.containerMenu.getCarried();
 
             if (carried.isEmpty()) {
+
                 player.containerMenu.setCarried(taken);
 
             } else if (ItemStack.isSameItemSameTags(carried, taken)) {
@@ -75,6 +76,7 @@ public class C2SRigSlotPacket {
                 }
 
             } else {
+
                 if (!player.getInventory().add(taken)) {
                     player.drop(taken, false);
                 }
@@ -88,8 +90,15 @@ public class C2SRigSlotPacket {
     // TEMP SAFE SIZE CHECK (no desync risk)
     // ─────────────────────────────
     private static int RigServiceSize(ItemStack rig) {
+
+        if (!rig.hasTag() || !rig.getTag().contains("TarkovRigInventory")) {
+            return 9;
+        }
+
         return com.tarkovinventory.inventory.RigInventory
-                .load(rig.getOrCreateTag().getCompound("TarkovRigInventory"))
-                .size();
+                .unwrapFromNBT(
+                        rig.getOrCreateTag().getCompound("TarkovRigInventory")
+                )
+                .getSlots();
     }
 }
