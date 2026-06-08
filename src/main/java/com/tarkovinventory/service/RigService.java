@@ -19,9 +19,9 @@ public final class RigService {
 
         RigInventory inv = load(rig);
 
-        if (slot < 0 || slot >= inv.size()) return ItemStack.EMPTY;
+        if (slot < 0 || slot >= inv.getSlots()) return ItemStack.EMPTY;
 
-        ItemStack taken = inv.extract(slot, amount);
+        ItemStack taken = inv.extractItem(slot, amount);
         if (taken.isEmpty()) return ItemStack.EMPTY;
 
         save(rig, inv);
@@ -35,9 +35,9 @@ public final class RigService {
 
         RigInventory inv = load(rig);
 
-        if (slot < 0 || slot >= inv.size()) return stack;
+        if (slot < 0 || slot >= inv.getSlots()) return stack;
 
-        ItemStack leftover = inv.set(slot, stack);
+        ItemStack leftover = inv.insertItem(slot, stack);
 
         save(rig, inv);
         syncRig(player, rig);
@@ -53,15 +53,17 @@ public final class RigService {
         CompoundTag tag = rig.getOrCreateTag();
 
         if (tag.contains("TarkovRigInventory")) {
-            return RigInventory.load(tag.getCompound("TarkovRigInventory"));
+            return RigInventory.unwrapFromNBT(
+                    tag.getCompound("TarkovRigInventory")
+            );
         }
 
-        return new RigInventory(9); // default fallback
+        return new RigInventory(3, 3); // default fallback
     }
 
     private static void save(ItemStack rig, RigInventory inv) {
         CompoundTag tag = rig.getOrCreateTag();
-        tag.put("TarkovRigInventory", inv.save());
+        tag.put("TarkovRigInventory", inv.serializeNBT());
     }
 
     // ─────────────────────────────
