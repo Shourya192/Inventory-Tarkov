@@ -1,7 +1,6 @@
 package com.tarkovinventory.network;
 
 import com.tarkovinventory.service.RigController;
-import com.tarkovinventory.service.RigLock;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -31,9 +30,6 @@ public class C2SRigSlotPacket {
 
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
-
-            // EXTRA SAFETY (packet + controller both protected)
-            if (!RigLock.tryLock(player.getUUID())) return;
 
             ItemStack taken = RigController.extract(player, msg.slot, 64);
 
