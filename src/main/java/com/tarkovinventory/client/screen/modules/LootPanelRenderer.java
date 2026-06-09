@@ -3,19 +3,55 @@ package com.tarkovinventory.client.screen.modules;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Corpse loot UI (simplified placeholder structure).
+ * Corpse loot UI (stable modular version).
  */
 public class LootPanelRenderer {
 
-    public void render(GuiGraphics g, int left, int top) {
+    private int left;
+    private int top;
 
-        int x = left + 300;
-        int y = top + 10;
+    // panel tuning
+    private static final int PANEL_W = 150;
+    private static final int PANEL_H = 220;
 
-        g.fill(x, y, x + 150, y + 220, 0xFF2A1010);
+    private static final int ROW_H = 16;
 
+    public void init(int left, int top) {
+        this.left = left;
+        this.top = top;
+    }
+
+    private int x() {
+        return left + 300;
+    }
+
+    private int y() {
+        return top + 10;
+    }
+
+    public void render(GuiGraphics g, int screenX, int screenY, int mouseX, int mouseY) {
+
+        int x = x();
+        int y = y();
+
+        // main panel background
+        g.fill(x, y, x + PANEL_W, y + PANEL_H, 0xFF2A1010);
+
+        // header bar
+        g.fill(x, y, x + PANEL_W, y + 14, 0xFF1A0A0A);
+
+        // rows
         for (int i = 0; i < 12; i++) {
-            g.fill(x + 5, y + 5 + i * 16, x + 145, y + 18 + i * 16, 0xFF3A1A1A);
+
+            int rowY = y + 16 + i * ROW_H;
+
+            g.fill(
+                    x + 5,
+                    rowY,
+                    x + PANEL_W - 5,
+                    rowY + ROW_H - 2,
+                    0xFF3A1A1A
+            );
         }
     }
 }
