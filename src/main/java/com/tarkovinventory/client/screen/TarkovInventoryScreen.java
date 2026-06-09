@@ -2,30 +2,26 @@ package com.tarkovinventory.client.screen;
 
 import com.tarkovinventory.client.screen.layout.*;
 import com.tarkovinventory.client.screen.modules.*;
-import com.tarkovinventory.container.TarkovInventoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Inventory;
 
-public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInventoryMenu> {
+public class TarkovInventoryScreen extends Screen {
+
+    private UIRoot root;
+    private UILayout layout;
 
     private final EquipmentPanelRenderer equipment = new EquipmentPanelRenderer();
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
     private final LootPanelRenderer loot = new LootPanelRenderer();
     private final VicinityRenderer vicinity = new VicinityRenderer();
 
-    private UIRoot root;
-    private UILayout layout;
-
-    public TarkovInventoryScreen(TarkovInventoryMenu menu, Inventory inv, Component title) {
-        super(menu, inv, title);
+    public TarkovInventoryScreen() {
+        super(Component.literal("Inventory"));
     }
 
     @Override
     protected void init() {
-        super.init();
-
         root = new UIRoot(width, height);
         layout = new UILayout(root);
     }
@@ -33,6 +29,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
+        // background dim
         renderBackground(g);
 
         Panel eq = layout.equipment();
@@ -40,21 +37,36 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         Panel lo = layout.loot();
         Panel vi = layout.vicinity();
 
+        // panels
         eq.draw(g);
         gr.draw(g);
         lo.draw(g);
         vi.draw(g);
 
+        // modules
         equipment.render(g, eq);
         grid.render(g, gr);
         loot.render(g, lo);
         vicinity.render(g, vi);
-
-        super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
-    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
-        g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFF101010);
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        return super.mouseDragged(mouseX, mouseY, button, dx, dy);
     }
 }
