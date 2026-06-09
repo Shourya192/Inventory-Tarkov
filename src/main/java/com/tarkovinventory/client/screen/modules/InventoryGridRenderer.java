@@ -4,13 +4,14 @@ import net.minecraft.client.gui.GuiGraphics;
 
 public class InventoryGridRenderer {
 
-    private static final int CELL = 17;
+    private static final int CELL = 18;
 
     private int left;
     private int top;
 
-    private final int cols = 5;
-    private final int rows = 5;
+    // Bigger Tarkov-style stash
+    private final int cols = 10;
+    private final int rows = 14;
 
     private int hoverSlot = -1;
 
@@ -23,7 +24,6 @@ public class InventoryGridRenderer {
         hoverSlot = getSlotAt(mouseX, mouseY);
     }
 
-    // 🔥 FULL TARKOV-STYLE BACKGROUND (MATCHES EQUIPMENT NOW)
     public void renderWithBackground(GuiGraphics g) {
 
         int w = cols * CELL;
@@ -32,17 +32,14 @@ public class InventoryGridRenderer {
         int x = left;
         int y = top;
 
-        // OUTER DARK FRAME (same weight as equipment)
-        g.fill(x - 14, y - 14, x + w + 14, y + h + 14, 0xFF0B0B0B);
+        // Outer frame
+        g.fill(x - 16, y - 16, x + w + 16, y + h + 16, 0xFF080808);
 
-        // MID FRAME (depth layer)
-        g.fill(x - 12, y - 12, x + w + 12, y + h + 12, 0xFF121212);
+        // Main panel
+        g.fill(x - 12, y - 12, x + w + 12, y + h + 12, 0xFF111111);
 
-        // INNER FRAME (main panel body)
-        g.fill(x - 10, y - 10, x + w + 10, y + h + 10, 0xFF1A1A1A);
-
-        // subtle inner border
-        g.fill(x - 8, y - 8, x + w + 8, y + h + 8, 0xFF202020);
+        // Inner frame
+        g.fill(x - 8, y - 8, x + w + 8, y + h + 8, 0xFF1A1A1A);
 
         render(g);
     }
@@ -51,20 +48,25 @@ public class InventoryGridRenderer {
 
         int slotIndex = 0;
 
-        for (int x = 0; x < cols; x++) {
-            for (int y = 0; y < rows; y++) {
+        for (int row = 0; row < rows; row++) {
 
-                int px = left + x * CELL;
-                int py = top + y * CELL;
+            for (int col = 0; col < cols; col++) {
 
-                int color = 0xFF2F2F2F;
+                int px = left + col * CELL;
+                int py = top + row * CELL;
 
-                // hover highlight
+                int color = 0xFF2B2B2B;
+
                 if (slotIndex == hoverSlot) {
-                    color = 0xFF5A5A5A;
+                    color = 0xFF555555;
                 }
 
-                g.fill(px, py, px + CELL, py + CELL, color);
+                // Slot background
+                g.fill(px, py, px + CELL - 1, py + CELL - 1, color);
+
+                // Slot border
+                g.fill(px, py, px + CELL - 1, py + 1, 0xFF3A3A3A);
+                g.fill(px, py, px + 1, py + CELL - 1, 0xFF3A3A3A);
 
                 slotIndex++;
             }
@@ -76,8 +78,18 @@ public class InventoryGridRenderer {
         int col = (int)((mouseX - left) / CELL);
         int row = (int)((mouseY - top) / CELL);
 
-        if (col < 0 || row < 0 || col >= cols || row >= rows) return -1;
+        if (col < 0 || row < 0 || col >= cols || row >= rows) {
+            return -1;
+        }
 
-        return col + row * cols;
+        return row * cols + col;
+    }
+
+    public int getWidth() {
+        return cols * CELL;
+    }
+
+    public int getHeight() {
+        return rows * CELL;
     }
 }
