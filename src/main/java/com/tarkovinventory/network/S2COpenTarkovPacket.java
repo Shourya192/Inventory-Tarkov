@@ -9,19 +9,18 @@ import java.util.function.Supplier;
 
 public class S2COpenTarkovPacket {
 
-    public S2COpenTarkovPacket() {}
+    public static void encode(S2COpenTarkovPacket msg, FriendlyByteBuf buf) {}
 
-    public S2COpenTarkovPacket(FriendlyByteBuf buf) {}
+    public static S2COpenTarkovPacket decode(FriendlyByteBuf buf) {
+        return new S2COpenTarkovPacket();
+    }
 
-    public void toBytes(FriendlyByteBuf buf) {}
-
-    public boolean handle(Supplier<NetworkEvent.Context> ctx) {
+    public static void handle(S2COpenTarkovPacket msg, Supplier<NetworkEvent.Context> ctx) {
 
         ctx.get().enqueueWork(() -> {
             Minecraft.getInstance().setScreen(new TarkovInventoryScreen());
         });
 
         ctx.get().setPacketHandled(true);
-        return true;
     }
 }
