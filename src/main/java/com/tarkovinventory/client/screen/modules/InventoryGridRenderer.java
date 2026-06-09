@@ -2,9 +2,6 @@ package com.tarkovinventory.client.screen.modules;
 
 import net.minecraft.client.gui.GuiGraphics;
 
-/**
- * Backpack grid renderer + hit detection
- */
 public class InventoryGridRenderer {
 
     private static final int CELL = 17;
@@ -13,11 +10,6 @@ public class InventoryGridRenderer {
     private int top;
     private int cols = 5;
     private int rows = 5;
-
-    public void setSize(int cols, int rows) {
-        this.cols = cols;
-        this.rows = rows;
-    }
 
     public void init(int left, int top) {
         this.left = left;
@@ -40,7 +32,6 @@ public class InventoryGridRenderer {
         }
     }
 
-    // ✅ THIS FIXES YOUR BUILD ERROR
     public int getSlotAt(double mouseX, double mouseY) {
 
         int startX = left + 200;
