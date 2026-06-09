@@ -1,28 +1,26 @@
 package com.tarkovinventory.client.screen.layout;
 
 /**
- * Central layout controller for Tarkov UI.
- * Fixes all hardcoded offsets.
+ * Clean fixed layout for Tarkov UI panels.
+ * No randomness, stable positions.
  */
 public class UILayout {
 
     private final int left;
     private final int top;
+    private final int width;
+    private final int height;
 
-    // Panel sizes
-    public static final int EQUIP_W = 180;
-    public static final int GRID_W  = 220;
-    public static final int LOOT_W  = 160;
-    public static final int GAP     = 8;
+    public static final int GAP = 8;
 
-    public UILayout(int left, int top) {
+    public UILayout(int left, int top, int width, int height) {
         this.left = left;
         this.top = top;
+        this.width = width;
+        this.height = height;
     }
 
-    // ─────────────────────────────
-    // LEFT PANEL (equipment)
-    // ─────────────────────────────
+    // LEFT: Equipment panel
     public int equipmentX() {
         return left + GAP;
     }
@@ -31,33 +29,30 @@ public class UILayout {
         return top + GAP;
     }
 
-    // ─────────────────────────────
-    // CENTER PANEL (grid)
-    // ─────────────────────────────
+    // CENTER: Inventory grid
     public int gridX() {
-        return equipmentX() + EQUIP_W + GAP;
+        return left + 200;
     }
 
     public int gridY() {
-        return top + GAP + 60;
+        return top + GAP + 40;
     }
 
-    // ─────────────────────────────
-    // RIGHT PANEL (loot/vicinity)
-    // ─────────────────────────────
+    // RIGHT: Loot panel
     public int lootX() {
-        return gridX() + GRID_W + GAP;
+        return left + 430;
     }
 
     public int lootY() {
         return top + GAP;
     }
 
+    // RIGHT-BOTTOM: Vicinity
     public int vicinityX() {
         return lootX();
     }
 
     public int vicinityY() {
-        return lootY() + 220;
+        return lootY() + 240;
     }
 }
