@@ -13,13 +13,7 @@ public class LootPanelRenderer {
 
             int y = p.y + 22 + i * 16;
 
-            g.fill(
-                    p.x + 6,
-                    y,
-                    p.x + p.w - 6,
-                    y + 12,
-                    0xFF2A2A2A
-            );
+            g.fill(p.x + 6, y, p.x + p.w - 6, y + 12, 0xFF222222);
         }
     }
 }
