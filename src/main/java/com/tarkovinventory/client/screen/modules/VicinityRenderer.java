@@ -1,25 +1,22 @@
 package com.tarkovinventory.client.screen.modules;
 
+import com.tarkovinventory.client.screen.layout.Panel;
 import net.minecraft.client.gui.GuiGraphics;
 
 public class VicinityRenderer {
 
-    public void render(GuiGraphics g, int left, int top) {
+    public void render(GuiGraphics g, Panel p) {
 
-        int x = left;
-        int y = top;
+        p.drawBase(g);
 
-        g.fill(x, y, x + 160, y + 180, 0xFF141414);
-
-        g.fill(x, y, x + 160, y + 18, 0xFF1C1C1C);
-
-        for (int i = 0; i < 8; i++) {
-
-            int rowY = y + 22 + i * 16;
-
-            g.fill(x + 5, rowY,
-                   x + 155, rowY + 14,
-                   0xFF222222);
+        for (int i = 0; i < 10; i++) {
+            g.fill(
+                    p.x + 6,
+                    p.y + 22 + i * 18,
+                    p.x + p.w - 6,
+                    p.y + 34 + i * 18,
+                    0xFF1A1A1A
+            );
         }
     }
 }
