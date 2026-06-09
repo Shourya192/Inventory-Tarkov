@@ -1,15 +1,12 @@
 package com.tarkovinventory.client.screen;
 
-import com.tarkovinventory.client.screen.layout.Panel;
-import com.tarkovinventory.client.screen.layout.UILayout;
+import com.tarkovinventory.client.screen.layout.*;
 import com.tarkovinventory.client.screen.modules.*;
 import com.tarkovinventory.container.TarkovInventoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
 public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInventoryMenu> {
 
@@ -18,6 +15,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private final LootPanelRenderer loot = new LootPanelRenderer();
     private final VicinityRenderer vicinity = new VicinityRenderer();
 
+    private UIRoot root;
     private UILayout layout;
 
     public TarkovInventoryScreen(TarkovInventoryMenu menu, Inventory inv, Component title) {
@@ -27,11 +25,13 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     @Override
     protected void init() {
         super.init();
-        layout = new UILayout(leftPos, topPos, width, height);
+
+        root = new UIRoot(width, height);
+        layout = new UILayout(root);
     }
 
     @Override
-    public void render(@NotNull GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
         renderBackground(g);
 
@@ -40,10 +40,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         Panel lo = layout.loot();
         Panel vi = layout.vicinity();
 
-        eq.drawBase(g);
-        gr.drawBase(g);
-        lo.drawBase(g);
-        vi.drawBase(g);
+        eq.draw(g);
+        gr.draw(g);
+        lo.draw(g);
+        vi.draw(g);
 
         equipment.render(g, eq);
         grid.render(g, gr);
@@ -54,7 +54,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     }
 
     @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFF101010);
+    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFF101010);
     }
 }
