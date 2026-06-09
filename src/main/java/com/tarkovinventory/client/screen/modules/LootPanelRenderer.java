@@ -12,10 +12,11 @@ public class LootPanelRenderer implements IModule {
         this.top = top;
     }
 
-    public void render(GuiGraphics g, int screenX, int screenY) {
+    @Override
+    public void render(GuiGraphics g, int left, int top, int mouseX, int mouseY) {
 
-        int x = left + 300;
-        int y = top + 10;
+        int x = this.left + 300;
+        int y = this.top + 10;
 
         g.fill(x, y, x + 150, y + 220, 0xFF2A1010);
 
@@ -29,13 +30,4 @@ public class LootPanelRenderer implements IModule {
             );
         }
     }
-
-    @Override
-    public void mouseClicked(double mouseX, double mouseY, int button, int screenX, int screenY) {}
-
-    @Override
-    public void mouseReleased(double mouseX, double mouseY, int button) {}
-
-    @Override
-    public void mouseDragged(double mouseX, double mouseY, int button, double dx, double dy, DragState drag) {}
 }
