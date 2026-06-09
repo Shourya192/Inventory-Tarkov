@@ -15,7 +15,7 @@ public class RightInventoryPanelRenderer {
         int lootHeight = lootRows * CELL;
         int vicinityHeight = vicinityRows * CELL;
 
-        int totalHeight = lootHeight + vicinityHeight + 70;
+        int totalHeight = lootHeight + vicinityHeight + 50;
 
         // Outer frame
         g.fill(
@@ -35,7 +35,7 @@ public class RightInventoryPanelRenderer {
                 0xFF151515
         );
 
-        // ===== LOOT =====
+        // ===== TOP GRID =====
 
         int lootGridY = top + 20;
 
@@ -49,21 +49,9 @@ public class RightInventoryPanelRenderer {
             }
         }
 
-        // Divider
+        // ===== BOTTOM GRID =====
 
-        int dividerY = lootGridY + lootHeight + 12;
-
-        g.fill(
-                left,
-                dividerY,
-                left + width,
-                dividerY + 2,
-                0xFF404040
-        );
-
-        // ===== VICINITY =====
-
-        int vicinityGridY = dividerY + 16;
+        int vicinityGridY = lootGridY + lootHeight + 6;
 
         for (int row = 0; row < vicinityRows; row++) {
             for (int col = 0; col < 10; col++) {
