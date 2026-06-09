@@ -12,29 +12,21 @@ public class EquipmentPanelRenderer implements IModule {
         this.top = top;
     }
 
-    public void render(GuiGraphics g) {
+    @Override
+    public void render(GuiGraphics g, int left, int top, int mouseX, int mouseY) {
 
-        int x = left + 7;
-        int y = top + 7;
+        int x = this.left + 7;
+        int y = this.top + 7;
 
-        g.fill(x, y, x + 26, y + 26, 0xFF1A1A1A);        // HEAD
-        g.fill(x + 40, y, x + 70, y + 30, 0xFF1A1A1A);    // CHEST
-        g.fill(x + 90, y, x + 116, y + 26, 0xFF1A1A1A);   // LEGS
-        g.fill(x + 130, y, x + 156, y + 26, 0xFF1A1A1A);  // FEET
+        g.fill(x, y, x + 26, y + 26, 0xFF1A1A1A);
+        g.fill(x + 40, y, x + 70, y + 30, 0xFF1A1A1A);
+        g.fill(x + 90, y, x + 116, y + 26, 0xFF1A1A1A);
+        g.fill(x + 130, y, x + 156, y + 26, 0xFF1A1A1A);
 
-        g.fill(x, y + 50, x + 40, y + 90, 0xFF1A1A1A);    // RIG
-        g.fill(x + 60, y + 50, x + 100, y + 90, 0xFF1A1A1A); // BACKPACK
+        g.fill(x, y + 50, x + 40, y + 90, 0xFF1A1A1A);
+        g.fill(x + 60, y + 50, x + 100, y + 90, 0xFF1A1A1A);
 
-        g.fill(x, y + 110, x + 40, y + 150, 0xFF1A1A1A);  // WEAPON 1
-        g.fill(x + 80, y + 110, x + 120, y + 150, 0xFF1A1A1A); // WEAPON 2
+        g.fill(x, y + 110, x + 40, y + 150, 0xFF1A1A1A);
+        g.fill(x + 80, y + 110, x + 120, y + 150, 0xFF1A1A1A);
     }
-
-    @Override
-    public void mouseClicked(double mouseX, double mouseY, int button, int screenX, int screenY) {}
-
-    @Override
-    public void mouseReleased(double mouseX, double mouseY, int button) {}
-
-    @Override
-    public void mouseDragged(double mouseX, double mouseY, int button, double dx, double dy, DragState drag) {}
 }
