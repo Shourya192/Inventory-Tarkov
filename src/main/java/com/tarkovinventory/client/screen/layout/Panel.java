@@ -3,8 +3,7 @@ package com.tarkovinventory.client.screen.layout;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * UI container panel with fixed bounds.
- * Everything must render inside this.
+ * UI Panel = single container with local coordinate space.
  */
 public class Panel {
 
@@ -21,10 +20,7 @@ public class Panel {
     }
 
     public void drawBase(GuiGraphics g) {
-        // Background
         g.fill(x, y, x + w, y + h, 0xFF141414);
-
-        // Header bar
         g.fill(x, y, x + w, y + 18, 0xFF1C1C1C);
     }
 }
