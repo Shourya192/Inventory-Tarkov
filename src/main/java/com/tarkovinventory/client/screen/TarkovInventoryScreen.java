@@ -1,5 +1,6 @@
 package com.tarkovinventory.client.screen;
 
+import com.tarkovinventory.client.screen.layout.Panel;
 import com.tarkovinventory.client.screen.layout.UILayout;
 import com.tarkovinventory.client.screen.modules.*;
 import com.tarkovinventory.container.TarkovInventoryMenu;
@@ -27,11 +28,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     @Override
     protected void init() {
         super.init();
-
         layout = new UILayout(leftPos, topPos, width, height);
-
-        equipment.init(layout.equipmentX(), layout.equipmentY());
-        grid.init(layout.gridX(), layout.gridY());
     }
 
     @Override
@@ -39,10 +36,20 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
         renderBackground(g);
 
+        Panel eq = layout.equipment();
+        Panel gr = layout.grid();
+        Panel lo = layout.loot();
+        Panel vi = layout.vicinity();
+
+        eq.drawBase(g);
+        gr.drawBase(g);
+        lo.drawBase(g);
+        vi.drawBase(g);
+
         equipment.render(g);
         grid.render(g);
-        loot.render(g, layout.lootX(), layout.lootY());
-        vicinity.render(g, layout.vicinityX(), layout.vicinityY());
+        loot.render(g, lo.x, lo.y);
+        vicinity.render(g, vi.x, vi.y);
 
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
