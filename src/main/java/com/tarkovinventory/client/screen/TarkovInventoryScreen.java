@@ -1,6 +1,6 @@
 package com.tarkovinventory.client.screen;
 
-import com.tarkovinventory.client.screen.layout.Panel;
+import com.tarkovinventory.client.screen.layo
 import com.tarkovinventory.client.screen.layout.UILayout;
 import com.tarkovinventory.client.screen.modules.*;
 import com.tarkovinventory.container.TarkovInventoryMenu;
