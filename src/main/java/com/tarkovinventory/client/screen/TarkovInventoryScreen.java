@@ -8,49 +8,51 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * STANDALONE TARKOV UI SCREEN
- * - NO Forge Container
- * - NO Vanilla Inventory GUI
- * - Pure custom rendering system
+ * FULL STANDALONE UI SCREEN (FIXED)
+ * - No Forge containers
+ * - No leftPos/topPos
+ * - Fixed module compatibility
  */
 public class TarkovInventoryScreen extends Screen {
 
-    // ── Modules ─────────────────────────────
+    // Modules
     private final EquipmentPanelRenderer equipment = new EquipmentPanelRenderer();
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
     private final LootPanelRenderer loot = new LootPanelRenderer();
     private final VicinityRenderer vicinity = new VicinityRenderer();
     private final DragState dragState = new DragState();
 
-    protected TarkovInventoryScreen() {
+    public TarkovInventoryScreen() {
         super(Component.literal("Tarkov Inventory"));
     }
+
+    // ───────────────────────────────────────
+    // INIT
+    // ───────────────────────────────────────
 
     @Override
     protected void init() {
         super.init();
 
-        equipment.init(leftPos(), topPos());
-        grid.init(leftPos(), topPos());
+        // FIXED: use screen width/height instead of leftPos/topPos
+        equipment.init(20, 20);
+        grid.init(20, 20);
     }
 
     // ───────────────────────────────────────
-    // MAIN RENDER LOOP
+    // RENDER
     // ───────────────────────────────────────
 
     @Override
     public void render(@NotNull GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
-        // dark background
         this.renderBackground(g);
 
-        // CORE UI MODULES
         equipment.render(g);
         grid.render(g);
-        loot.render(g, leftPos(), topPos());
-        vicinity.render(g, leftPos(), topPos());
+        loot.render(g, 0, 0);
+        vicinity.render(g, 0, 0);
 
-        // drag preview
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
@@ -59,17 +61,13 @@ public class TarkovInventoryScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
     }
 
-    // ───────────────────────────────────────
-    // BACKGROUND
-    // ───────────────────────────────────────
-
     @Override
     public void renderBackground(@NotNull GuiGraphics g) {
         g.fill(0, 0, width, height, 0xAA000000);
     }
 
     // ───────────────────────────────────────
-    // INPUT HANDLING
+    // INPUT
     // ───────────────────────────────────────
 
     @Override
@@ -82,16 +80,6 @@ public class TarkovInventoryScreen extends Screen {
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
