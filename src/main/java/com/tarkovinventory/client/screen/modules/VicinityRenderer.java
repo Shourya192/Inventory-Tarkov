@@ -6,17 +6,20 @@ public class VicinityRenderer {
 
     public void render(GuiGraphics g, int left, int top) {
 
-        int x = left + 450;
-        int y = top + 10;
+        int x = left;
+        int y = top;
 
-        g.fill(x, y, x + 140, y + 200, 0xFF101010);
+        g.fill(x, y, x + 160, y + 180, 0xFF141414);
 
-        for (int i = 0; i < 10; i++) {
-            g.fill(x + 5, y + 5 + i * 18, x + 135, y + 20 + i * 18, 0xFF1A1A1A);
+        g.fill(x, y, x + 160, y + 18, 0xFF1C1C1C);
+
+        for (int i = 0; i < 8; i++) {
+
+            int rowY = y + 22 + i * 16;
+
+            g.fill(x + 5, rowY,
+                   x + 155, rowY + 14,
+                   0xFF222222);
         }
     }
-
-    public void mouseClicked(double mx, double my, int btn, int x, int y) {}
-    public void mouseReleased(double mx, double my, int btn) {}
-    public void mouseDragged(double mx, double my, int btn, Object dragState) {}
 }
