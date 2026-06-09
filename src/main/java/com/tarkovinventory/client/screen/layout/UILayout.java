@@ -1,8 +1,8 @@
 package com.tarkovinventory.client.screen.layout;
 
 /**
- * Clean fixed layout for Tarkov UI panels.
- * No randomness, stable positions.
+ * FINAL CENTERED LAYOUT SYSTEM
+ * Fixes all positioning drift issues.
  */
 public class UILayout {
 
@@ -11,7 +11,10 @@ public class UILayout {
     private final int width;
     private final int height;
 
-    public static final int GAP = 8;
+    private static final int EQUIP_W = 180;
+    private static final int GRID_W  = 220;
+    private static final int LOOT_W  = 160;
+    private static final int GAP     = 10;
 
     public UILayout(int left, int top, int width, int height) {
         this.left = left;
@@ -20,39 +23,51 @@ public class UILayout {
         this.height = height;
     }
 
-    // LEFT: Equipment panel
+    private int centerX() {
+        return left + width / 2;
+    }
+
+    // ─────────────────────────────
+    // EQUIPMENT (LEFT)
+    // ─────────────────────────────
     public int equipmentX() {
-        return left + GAP;
+        return centerX() - (EQUIP_W + GRID_W + LOOT_W) / 2;
     }
 
     public int equipmentY() {
         return top + GAP;
     }
 
-    // CENTER: Inventory grid
+    // ─────────────────────────────
+    // GRID (CENTER)
+    // ─────────────────────────────
     public int gridX() {
-        return left + 200;
+        return equipmentX() + EQUIP_W + GAP;
     }
 
     public int gridY() {
-        return top + GAP + 40;
+        return top + GAP + 30;
     }
 
-    // RIGHT: Loot panel
+    // ─────────────────────────────
+    // LOOT (RIGHT)
+    // ─────────────────────────────
     public int lootX() {
-        return left + 430;
+        return gridX() + GRID_W + GAP;
     }
 
     public int lootY() {
         return top + GAP;
     }
 
-    // RIGHT-BOTTOM: Vicinity
+    // ─────────────────────────────
+    // VICINITY (BOTTOM RIGHT)
+    // ─────────────────────────────
     public int vicinityX() {
         return lootX();
     }
 
     public int vicinityY() {
-        return lootY() + 240;
+        return lootY() + 250;
     }
 }
