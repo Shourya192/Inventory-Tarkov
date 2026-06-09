@@ -8,14 +8,13 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * FULL STANDALONE UI SCREEN (FIXED)
+ * STANDALONE TARKOV UI SCREEN (FINAL FIXED VERSION)
  * - No Forge containers
- * - No leftPos/topPos
- * - Fixed module compatibility
+ * - No MenuScreens
+ * - Pure client-side UI
  */
 public class TarkovInventoryScreen extends Screen {
 
-    // Modules
     private final EquipmentPanelRenderer equipment = new EquipmentPanelRenderer();
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
     private final LootPanelRenderer loot = new LootPanelRenderer();
@@ -34,9 +33,11 @@ public class TarkovInventoryScreen extends Screen {
     protected void init() {
         super.init();
 
-        // FIXED: use screen width/height instead of leftPos/topPos
-        equipment.init(20, 20);
-        grid.init(20, 20);
+        int baseX = 20;
+        int baseY = 20;
+
+        equipment.init(baseX, baseY);
+        grid.init(baseX, baseY);
     }
 
     // ───────────────────────────────────────
@@ -46,13 +47,15 @@ public class TarkovInventoryScreen extends Screen {
     @Override
     public void render(@NotNull GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
-        this.renderBackground(g);
+        renderBackground(g);
 
+        // MODULES (ALL CONSISTENT NOW)
         equipment.render(g);
         grid.render(g);
         loot.render(g, 0, 0);
         vicinity.render(g, 0, 0);
 
+        // Drag item preview
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
