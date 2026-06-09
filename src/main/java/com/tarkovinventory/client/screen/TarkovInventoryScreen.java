@@ -29,7 +29,6 @@ public class TarkovInventoryScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
-        // background dim
         renderBackground(g);
 
         Panel eq = layout.equipment();
@@ -37,13 +36,11 @@ public class TarkovInventoryScreen extends Screen {
         Panel lo = layout.loot();
         Panel vi = layout.vicinity();
 
-        // panels
         eq.draw(g);
         gr.draw(g);
         lo.draw(g);
         vi.draw(g);
 
-        // modules
         equipment.render(g, eq);
         grid.render(g, gr);
         loot.render(g, lo);
@@ -53,20 +50,5 @@ public class TarkovInventoryScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        return super.mouseDragged(mouseX, mouseY, button, dx, dy);
     }
 }
