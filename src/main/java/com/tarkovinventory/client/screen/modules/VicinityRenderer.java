@@ -6,8 +6,8 @@ public class VicinityRenderer {
 
     public void render(GuiGraphics g, int left, int top) {
 
-        int x = left + 450;
-        int y = top + 10;
+        int x = left;
+        int y = top;
 
         g.fill(x, y, x + 140, y + 200, 0xFF101010);
 
