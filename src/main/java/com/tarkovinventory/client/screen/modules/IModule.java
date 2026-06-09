@@ -1,10 +1,13 @@
 package com.tarkovinventory.client.screen.modules;
 
 import com.tarkovinventory.client.screen.DragState;
+import net.minecraft.client.gui.GuiGraphics;
 
 public interface IModule {
 
-    default void mouseClicked(double mouseX, double mouseY, int button, int screenX, int screenY) {}
+    default void render(GuiGraphics g, int left, int top, int mouseX, int mouseY) {}
+
+    default void mouseClicked(double mouseX, double mouseY, int button, int left, int top) {}
 
     default void mouseReleased(double mouseX, double mouseY, int button) {}
 
