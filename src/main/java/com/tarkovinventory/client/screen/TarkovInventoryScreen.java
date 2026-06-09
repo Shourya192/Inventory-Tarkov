@@ -9,9 +9,16 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * CLEAN CONTROLLER:
+ * - No inventory logic
+ * - No rig logic
+ * - No loot logic
+ * - Only delegates rendering + input
+ */
 public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInventoryMenu> {
 
-    // ── Modules ─────────────────────────────
+    // Modules
     private final EquipmentPanelRenderer equipment = new EquipmentPanelRenderer();
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
     private final LootPanelRenderer loot = new LootPanelRenderer();
@@ -26,34 +33,22 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     protected void init() {
         super.init();
 
-        int x = leftPos;
-        int y = topPos;
-
-        equipment.init(x, y);
-        grid.init(x, y);
-        loot.init(x, y);
-        vicinity.init(x, y);
+        equipment.init(leftPos, topPos);
+        grid.init(leftPos, topPos);
     }
-
-    // ───────────────────────────────────────
-    // RENDER LOOP
-    // ───────────────────────────────────────
 
     @Override
     public void render(@NotNull GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
-        renderBackground(g);
+        this.renderBackground(g);
 
-        int x = leftPos;
-        int y = topPos;
+        // Render modules
+        equipment.render(g);
+        grid.render(g);
+        loot.render(g, leftPos, topPos);
+        vicinity.render(g, leftPos, topPos);
 
-        // IMPORTANT: consistent anchor for ALL modules
-        equipment.render(g, x, y, mouseX, mouseY);
-        grid.render(g, x, y, mouseX, mouseY);
-        vicinity.render(g, x, y, mouseX, mouseY);
-        loot.render(g, x, y, mouseX, mouseY);
-
-        // Drag preview (always top layer)
+        // Drag preview
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
@@ -73,9 +68,9 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         );
     }
 
-    // ───────────────────────────────────────
-    // INPUT (FIXED - FULL ROUTING)
-    // ───────────────────────────────────────
+    // =========================
+    // INPUT HANDLING (FIXED)
+    // =========================
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -83,12 +78,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         int x = leftPos;
         int y = topPos;
 
-        // ORDER MATTERS (top-most UI first)
-
-        if (loot.mouseClicked(mouseX, mouseY, button, x, y)) return true;
-        if (vicinity.mouseClicked(mouseX, mouseY, button, x, y)) return true;
-        if (equipment.mouseClicked(mouseX, mouseY, button, x, y)) return true;
-        if (grid.mouseClicked(mouseX, mouseY, button, x, y)) return true;
+        equipment.mouseClicked(mouseX, mouseY, button, x, y);
+        grid.mouseClicked(mouseX, mouseY, button, x, y);
+        loot.mouseClicked(mouseX, mouseY, button, x, y);
+        vicinity.mouseClicked(mouseX, mouseY, button, x, y);
 
         return super.mouseClicked(mouseX, mouseY, button);
     }
