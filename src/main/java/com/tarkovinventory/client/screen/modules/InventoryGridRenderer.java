@@ -9,30 +9,47 @@ public class InventoryGridRenderer {
     private int left;
     private int top;
 
-    private int cols = 5;
-    private int rows = 5;
+    private final int cols = 5;
+    private final int rows = 5;
+
+    private int hoverSlot = -1;
 
     public void init(int left, int top) {
         this.left = left;
         this.top = top;
     }
 
-    // 🔥 BACKPACK PANEL WITH BACKGROUND (IMPORTANT)
+    public void updateHover(double mouseX, double mouseY) {
+        hoverSlot = getSlotAt(mouseX, mouseY);
+    }
+
+    // 🔥 FULL TARKOV-STYLE BACKGROUND (MATCHES EQUIPMENT NOW)
     public void renderWithBackground(GuiGraphics g) {
 
         int w = cols * CELL;
         int h = rows * CELL;
 
-        // main panel background (this is what was missing)
-        g.fill(left - 10, top - 10, left + w + 10, top + h + 10, 0xFF0B0B0B);
+        int x = left;
+        int y = top;
 
-        // inner border shade (gives Tarkov depth feel)
-        g.fill(left - 8, top - 8, left + w + 8, top + h + 8, 0xFF151515);
+        // OUTER DARK FRAME (same weight as equipment)
+        g.fill(x - 14, y - 14, x + w + 14, y + h + 14, 0xFF0B0B0B);
+
+        // MID FRAME (depth layer)
+        g.fill(x - 12, y - 12, x + w + 12, y + h + 12, 0xFF121212);
+
+        // INNER FRAME (main panel body)
+        g.fill(x - 10, y - 10, x + w + 10, y + h + 10, 0xFF1A1A1A);
+
+        // subtle inner border
+        g.fill(x - 8, y - 8, x + w + 8, y + h + 8, 0xFF202020);
 
         render(g);
     }
 
     public void render(GuiGraphics g) {
+
+        int slotIndex = 0;
 
         for (int x = 0; x < cols; x++) {
             for (int y = 0; y < rows; y++) {
@@ -40,7 +57,16 @@ public class InventoryGridRenderer {
                 int px = left + x * CELL;
                 int py = top + y * CELL;
 
-                g.fill(px, py, px + CELL, py + CELL, 0xFF2F2F2F);
+                int color = 0xFF2F2F2F;
+
+                // hover highlight
+                if (slotIndex == hoverSlot) {
+                    color = 0xFF5A5A5A;
+                }
+
+                g.fill(px, py, px + CELL, py + CELL, color);
+
+                slotIndex++;
             }
         }
     }
