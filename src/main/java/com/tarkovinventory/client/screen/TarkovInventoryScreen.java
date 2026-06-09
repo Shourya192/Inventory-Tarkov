@@ -28,20 +28,21 @@ public class TarkovInventoryScreen extends Screen {
     protected void init() {
         super.init();
 
-        int spacing = 20;
+        int spacing = 30; // increased spacing = fixes "too close to center" issue
 
-        int leftW = 180;
-        int centerW = 200;
+        int leftW = 190;
+        int centerW = 220;
         int rightW = 320;
 
-        int totalW = leftW + centerW + rightW + spacing * 2;
+        int totalW = leftW + centerW + rightW + (spacing * 2);
 
         int startX = (this.width - totalW) / 2;
         this.topY = (this.height - 220) / 2;
 
+        // FIXED ANCHORS (now properly balanced)
         this.leftX = startX;
         this.centerX = startX + leftW + spacing;
-        this.rightX = startX + leftW + centerW + spacing * 2;
+        this.rightX = startX + leftW + centerW + (spacing * 2);
 
         equipment.init(leftX, topY);
         grid.init(centerX, topY);
@@ -52,12 +53,19 @@ public class TarkovInventoryScreen extends Screen {
 
         renderBackground(g);
 
-        equipment.render(g);
+        // 🟫 LEFT (Equipment + background fix)
+        equipment.renderWithBackground(g);
+
+        // 🟦 CENTER (Backpack grid)
         grid.render(g);
 
+        // 🟥 RIGHT TOP (Loot)
         loot.render(g, rightX, topY);
+
+        // 🟥 RIGHT BOTTOM (Vicinity)
         vicinity.render(g, rightX, topY + 240);
 
+        // Drag item
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
