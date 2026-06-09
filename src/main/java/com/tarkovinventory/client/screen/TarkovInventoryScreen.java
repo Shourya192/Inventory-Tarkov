@@ -1,7 +1,7 @@
 package com.tarkovinventory.client.screen;
 
-import com.tarkovinventory.client.screen.modules.*;
 import com.tarkovinventory.client.screen.layout.UILayout;
+import com.tarkovinventory.client.screen.modules.*;
 import com.tarkovinventory.container.TarkovInventoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -28,7 +28,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     protected void init() {
         super.init();
 
-        layout = new UILayout(leftPos, topPos);
+        layout = new UILayout(leftPos, topPos, width, height);
 
         equipment.init(layout.equipmentX(), layout.equipmentY());
         grid.init(layout.gridX(), layout.gridY());
@@ -37,7 +37,7 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     @Override
     public void render(@NotNull GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
-        this.renderBackground(g);
+        renderBackground(g);
 
         equipment.render(g);
         grid.render(g);
@@ -54,45 +54,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.fill(
-                leftPos,
-                topPos,
-                leftPos + imageWidth,
-                topPos + imageHeight,
-                0xFF101010
-        );
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-
-        int x = leftPos;
-        int y = topPos;
-
-        equipment.mouseClicked(mouseX, mouseY, button, x, y);
-        grid.mouseClicked(mouseX, mouseY, button, x, y);
-        loot.mouseClicked(mouseX, mouseY, button, x, y);
-        vicinity.mouseClicked(mouseX, mouseY, button, x, y);
-
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-
-        equipment.mouseReleased(mouseX, mouseY, button);
-        grid.mouseReleased(mouseX, mouseY, button);
-        loot.mouseReleased(mouseX, mouseY, button);
-
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-
-        grid.mouseDragged(mouseX, mouseY, button, dx, dy, dragState);
-        loot.mouseDragged(mouseX, mouseY, button, dx, dy, dragState);
-
-        return super.mouseDragged(mouseX, mouseY, button, dx, dy);
+        guiGraphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFF101010);
     }
 }
