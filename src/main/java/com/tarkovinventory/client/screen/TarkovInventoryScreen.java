@@ -17,7 +17,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
     private final LootPanelRenderer loot = new LootPanelRenderer();
     private final VicinityRenderer vicinity = new VicinityRenderer();
-    private final DragState dragState = new DragState();
 
     private UILayout layout;
 
@@ -46,15 +45,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
         lo.drawBase(g);
         vi.drawBase(g);
 
-        equipment.render(g);
-        grid.render(g);
-        loot.render(g, lo.x, lo.y);
-        vicinity.render(g, vi.x, vi.y);
-
-        if (dragState.isDragging()) {
-            ItemStack stack = dragState.getDragging();
-            g.renderItem(stack, mouseX - 8, mouseY - 8);
-        }
+        equipment.render(g, eq);
+        grid.render(g, gr);
+        loot.render(g, lo);
+        vicinity.render(g, vi);
 
         super.render(g, mouseX, mouseY, partialTick);
     }
