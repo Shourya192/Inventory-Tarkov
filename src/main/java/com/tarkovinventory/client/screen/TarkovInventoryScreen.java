@@ -3,8 +3,7 @@ package com.tarkovinventory.client.screen;
 import com.tarkovinventory.client.screen.modules.DragState;
 import com.tarkovinventory.client.screen.modules.EquipmentPanelRenderer;
 import com.tarkovinventory.client.screen.modules.InventoryGridRenderer;
-import com.tarkovinventory.client.screen.modules.LootPanelRenderer;
-import com.tarkovinventory.client.screen.modules.VicinityRenderer;
+import com.tarkovinventory.client.screen.modules.RightInventoryPanelRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -15,8 +14,7 @@ public class TarkovInventoryScreen extends Screen {
 
     private final EquipmentPanelRenderer equipment = new EquipmentPanelRenderer();
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
-    private final LootPanelRenderer loot = new LootPanelRenderer();
-    private final VicinityRenderer vicinity = new VicinityRenderer();
+    private final RightInventoryPanelRenderer rightPanel = new RightInventoryPanelRenderer();
     private final DragState dragState = new DragState();
 
     private int leftX;
@@ -36,7 +34,7 @@ public class TarkovInventoryScreen extends Screen {
 
         int equipmentW = 180;
         int gridW = (10 * 18) + 32;
-        int rightW = 320;
+        int rightW = (10 * 18) + 16;
 
         int totalW = equipmentW + gridW + rightW + (spacing * 2);
 
@@ -62,8 +60,7 @@ public class TarkovInventoryScreen extends Screen {
         equipment.renderWithBackground(g);
         grid.renderWithBackground(g);
 
-        loot.render(g, rightX, topY);
-        vicinity.render(g, rightX, topY + 240);
+        rightPanel.render(g, rightX, topY);
 
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
