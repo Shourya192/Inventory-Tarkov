@@ -11,12 +11,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Handles the "Open Tarkov Inventory" key press on the client side.
- * Registered on the FORGE bus via @Mod.EventBusSubscriber.
- *
- * The keymapping itself is registered in ClientSetup via the MOD bus.
- */
 @Mod.EventBusSubscriber(modid = TarkovInventoryMod.MOD_ID, value = Dist.CLIENT)
 public final class KeyHandler {
 
@@ -28,8 +22,12 @@ public final class KeyHandler {
 
     @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
+
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.screen != null) return;
+
+        if (mc.player == null) return;
+        if (mc.screen != null) return;
+
         if (OPEN_INVENTORY.consumeClick()) {
             ModNetwork.CHANNEL.sendToServer(new C2SOpenTarkovPacket());
         }
