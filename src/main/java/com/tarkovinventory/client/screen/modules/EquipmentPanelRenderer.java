@@ -12,28 +12,57 @@ public class EquipmentPanelRenderer {
         this.top = top;
     }
 
+    // Small helper for styled slot
+    private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
+
+        // outer shadow
+        g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
+
+        // main body (slightly lighter)
+        g.fill(x1, y1, x2, y2, 0xFF1C1C1C);
+
+        // highlight top edge
+        g.fill(x1, y1, x2, y1 + 1, 0xFF2A2A2A);
+
+        // subtle inner depth
+        g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF171717);
+    }
+
     public void render(GuiGraphics g) {
 
         int x = left;
         int y = top;
 
-        // HEAD
-        g.fill(x + 55, y, x + 85, y + 30, 0xFF1A1A1A);
+        int s = 28;
+        int gap = 6;
 
-        // ARMOR
-        g.fill(x + 40, y + 40, x + 100, y + 90, 0xFF1A1A1A);
+        // ===== Row 1 =====
+        slot(g, x, y, x + s, y + s);                               // Balaclava
+        slot(g, x + s + gap, y, x + s * 2 + gap, y + s);          // Head
 
-        // RIG
-        g.fill(x, y + 105, x + 60, y + 145, 0xFF1A1A1A);
+        // ===== Row 2 =====
+        slot(g, x, y + s + gap, x + s, y + s * 2 + gap);          // Ear
+        slot(g, x + s + gap, y + s + gap, x + s * 2 + gap, y + s * 2 + gap); // Face
 
-        // BACKPACK
-        g.fill(x + 80, y + 105, x + 140, y + 145, 0xFF1A1A1A);
+        // ===== Row 3 =====
+        slot(g, x, y + (s + gap) * 2, x + s, y + (s + gap) * 3);  // Rig
+        slot(g, x + s + gap, y + (s + gap) * 2, x + s * 2 + gap, y + (s + gap) * 3); // Chest
 
-        // PRIMARY WEAPON
-        g.fill(x, y + 165, x + 140, y + 195, 0xFF1A1A1A);
+        // ===== Row 4 =====
+        slot(g, x + s / 2, y + (s + gap) * 3, x + s * 1.5f, y + (s + gap) * 4); // Pants
 
-        // SECONDARY WEAPON
-        g.fill(x, y + 205, x + 140, y + 235, 0xFF1A1A1A);
+        // ===== Row 5 =====
+        slot(g, x + s / 2, y + (s + gap) * 4, x + s, y + (s + gap) * 5);       // Knees
+        slot(g, x + s, y + (s + gap) * 4, x + s * 1.5f, y + (s + gap) * 5);    // Boots
+
+        // ===== Backpack =====
+        slot(g, x, y + (s + gap) * 5, x + s, y + (s + gap) * 7);
+
+        // ===== Weapons =====
+        int wY = y + (s + gap) * 7 + 10;
+
+        slot(g, x, wY, x + s * 3, wY + s);
+        slot(g, x, wY + s + gap, x + s * 3, wY + s * 2);
     }
 
     public void renderWithBackground(GuiGraphics g) {
@@ -41,13 +70,14 @@ public class EquipmentPanelRenderer {
         int x = left;
         int y = top;
 
-        g.fill(
-                x - 6,
-                y - 6,
-                x + 170,
-                y + 250,
-                0xFF0F0F0F
-        );
+        // panel background (same style as other panels)
+        g.fill(x - 8, y - 8, x + 150, y + 270, 0xFF101010);
+
+        // border frame
+        g.fill(x - 8, y - 8, x + 150, y - 6, 0xFF2B2B2B);
+        g.fill(x - 8, y + 270, x + 150, y + 272, 0xFF2B2B2B);
+        g.fill(x - 8, y - 8, x - 6, y + 272, 0xFF2B2B2B);
+        g.fill(x + 150, y - 8, x + 152, y + 272, 0xFF2B2B2B);
 
         render(g);
     }
