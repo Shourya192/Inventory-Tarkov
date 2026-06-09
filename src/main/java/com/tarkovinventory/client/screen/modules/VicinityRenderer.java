@@ -12,10 +12,11 @@ public class VicinityRenderer implements IModule {
         this.top = top;
     }
 
-    public void render(GuiGraphics g, int screenX, int screenY) {
+    @Override
+    public void render(GuiGraphics g, int left, int top, int mouseX, int mouseY) {
 
-        int x = left + 450;
-        int y = top + 10;
+        int x = this.left + 450;
+        int y = this.top + 10;
 
         g.fill(x, y, x + 140, y + 200, 0xFF101010);
 
@@ -29,13 +30,4 @@ public class VicinityRenderer implements IModule {
             );
         }
     }
-
-    @Override
-    public void mouseClicked(double mouseX, double mouseY, int button, int screenX, int screenY) {}
-
-    @Override
-    public void mouseReleased(double mouseX, double mouseY, int button) {}
-
-    @Override
-    public void mouseDragged(double mouseX, double mouseY, int button, double dx, double dy, DragState drag) {}
 }
