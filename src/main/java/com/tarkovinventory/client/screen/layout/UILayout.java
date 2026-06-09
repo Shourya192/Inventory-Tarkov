@@ -9,18 +9,18 @@ public class UILayout {
     }
 
     public Panel equipment() {
-        return new Panel(root.x, root.y, 180, 180);
+        return new Panel(root.x, root.y, 180, 170);
     }
 
     public Panel grid() {
-        return new Panel(root.x + 190, root.y + 30, 220, 220);
+        return new Panel(root.x + 190, root.y, 240, 240);
     }
 
     public Panel loot() {
-        return new Panel(root.x + 420, root.y, 160, 240);
+        return new Panel(root.x + 440, root.y, 180, 220);
     }
 
     public Panel vicinity() {
-        return new Panel(root.x + 420, root.y + 250, 160, 180);
+        return new Panel(root.x + 440, root.y + 230, 180, 120);
     }
 }
