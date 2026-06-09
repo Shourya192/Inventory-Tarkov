@@ -17,6 +17,21 @@ public class InventoryGridRenderer {
         this.top = top;
     }
 
+    // 🔥 BACKPACK PANEL WITH BACKGROUND (IMPORTANT)
+    public void renderWithBackground(GuiGraphics g) {
+
+        int w = cols * CELL;
+        int h = rows * CELL;
+
+        // main panel background (this is what was missing)
+        g.fill(left - 10, top - 10, left + w + 10, top + h + 10, 0xFF0B0B0B);
+
+        // inner border shade (gives Tarkov depth feel)
+        g.fill(left - 8, top - 8, left + w + 8, top + h + 8, 0xFF151515);
+
+        render(g);
+    }
+
     public void render(GuiGraphics g) {
 
         for (int x = 0; x < cols; x++) {
@@ -25,7 +40,7 @@ public class InventoryGridRenderer {
                 int px = left + x * CELL;
                 int py = top + y * CELL;
 
-                g.fill(px, py, px + CELL, py + CELL, 0xFF252525);
+                g.fill(px, py, px + CELL, py + CELL, 0xFF2F2F2F);
             }
         }
     }
