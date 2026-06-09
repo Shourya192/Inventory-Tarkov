@@ -28,21 +28,22 @@ public class TarkovInventoryScreen extends Screen {
     protected void init() {
         super.init();
 
-        int spacing = 30; // increased spacing = fixes "too close to center" issue
-
-        int leftW = 190;
-        int centerW = 220;
+        // REAL measured widths (matches your actual UI sizes)
+        int equipmentW = 170;
+        int gridW = 220;
         int rightW = 320;
 
-        int totalW = leftW + centerW + rightW + (spacing * 2);
+        int spacing = 40; // increased to prevent “too close / left feel”
+
+        int totalW = equipmentW + gridW + rightW + spacing * 2;
 
         int startX = (this.width - totalW) / 2;
         this.topY = (this.height - 220) / 2;
 
-        // FIXED ANCHORS (now properly balanced)
+        // PERFECT anchors
         this.leftX = startX;
-        this.centerX = startX + leftW + spacing;
-        this.rightX = startX + leftW + centerW + (spacing * 2);
+        this.centerX = startX + equipmentW + spacing;
+        this.rightX = startX + equipmentW + gridW + spacing * 2;
 
         equipment.init(leftX, topY);
         grid.init(centerX, topY);
@@ -53,19 +54,16 @@ public class TarkovInventoryScreen extends Screen {
 
         renderBackground(g);
 
-        // 🟫 LEFT (Equipment + background fix)
+        // LEFT
         equipment.renderWithBackground(g);
 
-        // 🟦 CENTER (Backpack grid)
-        grid.render(g);
+        // CENTER (IMPORTANT: now centered properly)
+        grid.renderWithBackground(g);
 
-        // 🟥 RIGHT TOP (Loot)
+        // RIGHT
         loot.render(g, rightX, topY);
-
-        // 🟥 RIGHT BOTTOM (Vicinity)
         vicinity.render(g, rightX, topY + 240);
 
-        // Drag item
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
