@@ -13,13 +13,7 @@ public class VicinityRenderer {
 
             int y = p.y + 22 + i * 18;
 
-            g.fill(
-                    p.x + 6,
-                    y,
-                    p.x + p.w - 6,
-                    y + 14,
-                    0xFF1A1A1A
-            );
+            g.fill(p.x + 6, y, p.x + p.w - 6, y + 14, 0xFF1A1A1A);
         }
     }
 }
