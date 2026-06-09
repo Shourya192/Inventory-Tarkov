@@ -9,10 +9,6 @@ public class InventoryGridRenderer {
     private int left;
     private int top;
 
-    // Bigger Tarkov-style stash
-    private final int cols = 10;
-    private final int rows = 14;
-
     private int hoverSlot = -1;
 
     public void init(int left, int top) {
@@ -21,75 +17,110 @@ public class InventoryGridRenderer {
     }
 
     public void updateHover(double mouseX, double mouseY) {
-        hoverSlot = getSlotAt(mouseX, mouseY);
+        hoverSlot = -1;
     }
 
     public void renderWithBackground(GuiGraphics g) {
 
-        int w = cols * CELL;
-        int h = rows * CELL;
+        int width = 8 * CELL;
+        int height = 16 * CELL;
 
-        int x = left;
-        int y = top;
+        g.fill(
+                left - 16,
+                top - 16,
+                left + width + 16,
+                top + height + 16,
+                0xFF080808
+        );
 
-        // Outer frame
-        g.fill(x - 16, y - 16, x + w + 16, y + h + 16, 0xFF080808);
+        g.fill(
+                left - 12,
+                top - 12,
+                left + width + 12,
+                top + height + 12,
+                0xFF111111
+        );
 
-        // Main panel
-        g.fill(x - 12, y - 12, x + w + 12, y + h + 12, 0xFF111111);
-
-        // Inner frame
-        g.fill(x - 8, y - 8, x + w + 8, y + h + 8, 0xFF1A1A1A);
+        g.fill(
+                left - 8,
+                top - 8,
+                left + width + 8,
+                top + height + 8,
+                0xFF1A1A1A
+        );
 
         render(g);
     }
 
     public void render(GuiGraphics g) {
 
-        int slotIndex = 0;
+        // ===== POCKETS =====
 
-        for (int row = 0; row < rows; row++) {
+        int pocketsY = top;
 
-            for (int col = 0; col < cols; col++) {
+        for (int i = 0; i < 7; i++) {
 
-                int px = left + col * CELL;
-                int py = top + row * CELL;
+            int x = left + i * CELL;
 
-                int color = 0xFF2B2B2B;
+            g.fill(
+                    x,
+                    pocketsY,
+                    x + CELL - 1,
+                    pocketsY + CELL - 1,
+                    0xFF2B2B2B
+            );
+        }
 
-                if (slotIndex == hoverSlot) {
-                    color = 0xFF555555;
-                }
+        // ===== RIG =====
 
-                // Slot background
-                g.fill(px, py, px + CELL - 1, py + CELL - 1, color);
+        int rigY = pocketsY + 40;
 
-                // Slot border
-                g.fill(px, py, px + CELL - 1, py + 1, 0xFF3A3A3A);
-                g.fill(px, py, px + 1, py + CELL - 1, 0xFF3A3A3A);
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 4; col++) {
 
-                slotIndex++;
+                int x = left + col * CELL;
+                int y = rigY + row * CELL;
+
+                g.fill(
+                        x,
+                        y,
+                        x + CELL - 1,
+                        y + CELL - 1,
+                        0xFF2B2B2B
+                );
+            }
+        }
+
+        // ===== BACKPACK =====
+
+        int backpackY = rigY + (3 * CELL) + 40;
+
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 6; col++) {
+
+                int x = left + col * CELL;
+                int y = backpackY + row * CELL;
+
+                g.fill(
+                        x,
+                        y,
+                        x + CELL - 1,
+                        y + CELL - 1,
+                        0xFF2B2B2B
+                );
             }
         }
     }
 
     public int getSlotAt(double mouseX, double mouseY) {
-
-        int col = (int)((mouseX - left) / CELL);
-        int row = (int)((mouseY - top) / CELL);
-
-        if (col < 0 || row < 0 || col >= cols || row >= rows) {
-            return -1;
-        }
-
-        return row * cols + col;
+        return -1;
     }
 
     public int getWidth() {
-        return cols * CELL;
+        return 8 * CELL;
     }
 
     public int getHeight() {
-        return rows * CELL;
+        return 16 * CELL;
     }
 }
