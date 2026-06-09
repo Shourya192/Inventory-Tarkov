@@ -15,7 +15,7 @@ public class RightInventoryPanelRenderer {
         int lootHeight = lootRows * CELL;
         int vicinityHeight = vicinityRows * CELL;
 
-        int totalHeight = lootHeight + vicinityHeight + 50;
+        int totalHeight = lootHeight + vicinityHeight + 40;
 
         // Outer frame
         g.fill(
@@ -35,8 +35,7 @@ public class RightInventoryPanelRenderer {
                 0xFF151515
         );
 
-        // ===== TOP GRID =====
-
+        // TOP GRID
         int lootGridY = top + 20;
 
         for (int row = 0; row < lootRows; row++) {
@@ -45,13 +44,18 @@ public class RightInventoryPanelRenderer {
                 int x = left + col * CELL;
                 int y = lootGridY + row * CELL;
 
-                g.fill(x, y, x + CELL - 1, y + CELL - 1, 0xFF262626);
+                g.fill(
+                        x,
+                        y,
+                        x + CELL - 1,
+                        y + CELL - 1,
+                        0xFF262626
+                );
             }
         }
 
-        // ===== BOTTOM GRID =====
-
-        int vicinityGridY = lootGridY + lootHeight + 6;
+        // BOTTOM GRID (NO GAP)
+        int vicinityGridY = lootGridY + lootHeight;
 
         for (int row = 0; row < vicinityRows; row++) {
             for (int col = 0; col < 10; col++) {
@@ -59,7 +63,13 @@ public class RightInventoryPanelRenderer {
                 int x = left + col * CELL;
                 int y = vicinityGridY + row * CELL;
 
-                g.fill(x, y, x + CELL - 1, y + CELL - 1, 0xFF262626);
+                g.fill(
+                        x,
+                        y,
+                        x + CELL - 1,
+                        y + CELL - 1,
+                        0xFF262626
+                );
             }
         }
     }
