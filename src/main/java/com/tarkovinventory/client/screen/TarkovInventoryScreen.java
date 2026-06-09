@@ -28,19 +28,21 @@ public class TarkovInventoryScreen extends Screen {
     protected void init() {
         super.init();
 
-        // REAL measured widths (matches your actual UI sizes)
-        int equipmentW = 170;
-        int gridW = 220;
-        int rightW = 320;
+        int spacing = 40;
 
-        int spacing = 40; // increased to prevent “too close / left feel”
+        // Panel sizes (must match your actual UI blocks)
+        int equipmentW = 180;
+        int gridW = (5 * 17) + 20; // 5 columns + padding
+        int rightW = 320;
 
         int totalW = equipmentW + gridW + rightW + spacing * 2;
 
-        int startX = (this.width - totalW) / 2;
+        // 🔥 TRUE CENTERING FIX (NO LEFT DRIFT)
+        int startX = (this.width / 2) - (totalW / 2);
+
         this.topY = (this.height - 220) / 2;
 
-        // PERFECT anchors
+        // Final anchors
         this.leftX = startX;
         this.centerX = startX + equipmentW + spacing;
         this.rightX = startX + equipmentW + gridW + spacing * 2;
@@ -54,16 +56,17 @@ public class TarkovInventoryScreen extends Screen {
 
         renderBackground(g);
 
-        // LEFT
+        // LEFT (equipment with background)
         equipment.renderWithBackground(g);
 
-        // CENTER (IMPORTANT: now centered properly)
+        // CENTER (backpack grid with background)
         grid.renderWithBackground(g);
 
-        // RIGHT
+        // RIGHT (loot + vicinity)
         loot.render(g, rightX, topY);
         vicinity.render(g, rightX, topY + 240);
 
+        // Drag item preview
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
