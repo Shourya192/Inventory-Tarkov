@@ -8,6 +8,7 @@ public class InventoryGridRenderer {
 
     private int left;
     private int top;
+
     private int cols = 5;
     private int rows = 5;
 
@@ -23,21 +24,37 @@ public class InventoryGridRenderer {
 
     public void render(GuiGraphics g) {
 
-        int startX = left + 200;
-        int startY = top + 70;
+        int startX = left;
+        int startY = top;
 
+        // BACKGROUND
+        g.fill(startX - 6, startY - 22,
+               startX + cols * CELL + 6,
+               startY + rows * CELL + 6,
+               0xFF141414);
+
+        // HEADER
+        g.fill(startX - 6, startY - 38,
+               startX + cols * CELL + 6,
+               startY - 22,
+               0xFF1C1C1C);
+
+        // GRID CELLS
         for (int x = 0; x < cols; x++) {
             for (int y = 0; y < rows; y++) {
+
                 int px = startX + x * CELL;
                 int py = startY + y * CELL;
-                g.fill(px, py, px + CELL, py + CELL, 0xFF252525);
+
+                g.fill(px, py, px + CELL - 1, py + CELL - 1, 0xFF222222);
             }
         }
     }
 
     public int getSlotAt(double mouseX, double mouseY) {
-        int startX = left + 200;
-        int startY = top + 70;
+
+        int startX = left;
+        int startY = top;
 
         int col = (int)((mouseX - startX) / CELL);
         int row = (int)((mouseY - startY) / CELL);
@@ -46,8 +63,4 @@ public class InventoryGridRenderer {
 
         return col + row * cols;
     }
-
-    public void mouseClicked(double mx, double my, int btn, int x, int y) {}
-    public void mouseReleased(double mx, double my, int btn) {}
-    public void mouseDragged(double mx, double my, int btn, double dx, double dy, Object dragState) {}
 }
