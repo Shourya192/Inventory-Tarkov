@@ -1,6 +1,7 @@
 package com.tarkovinventory.client.screen;
 
 import com.tarkovinventory.client.screen.modules.*;
+import com.tarkovinventory.client.screen.layout.UILayout;
 import com.tarkovinventory.container.TarkovInventoryMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -9,21 +10,15 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * CLEAN CONTROLLER:
- * - No inventory logic
- * - No rig logic
- * - No loot logic
- * - Only delegates rendering + input
- */
 public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInventoryMenu> {
 
-    // Modules
     private final EquipmentPanelRenderer equipment = new EquipmentPanelRenderer();
     private final InventoryGridRenderer grid = new InventoryGridRenderer();
     private final LootPanelRenderer loot = new LootPanelRenderer();
     private final VicinityRenderer vicinity = new VicinityRenderer();
     private final DragState dragState = new DragState();
+
+    private UILayout layout;
 
     public TarkovInventoryScreen(TarkovInventoryMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -33,8 +28,10 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     protected void init() {
         super.init();
 
-        equipment.init(leftPos, topPos);
-        grid.init(leftPos, topPos);
+        layout = new UILayout(leftPos, topPos);
+
+        equipment.init(layout.equipmentX(), layout.equipmentY());
+        grid.init(layout.gridX(), layout.gridY());
     }
 
     @Override
@@ -42,13 +39,11 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
 
         this.renderBackground(g);
 
-        // Render modules
         equipment.render(g);
         grid.render(g);
-        loot.render(g, leftPos, topPos);
-        vicinity.render(g, leftPos, topPos);
+        loot.render(g, layout.lootX(), layout.lootY());
+        vicinity.render(g, layout.vicinityX(), layout.vicinityY());
 
-        // Drag preview
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
@@ -67,10 +62,6 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
                 0xFF101010
         );
     }
-
-    // =========================
-    // INPUT HANDLING (FIXED)
-    // =========================
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
