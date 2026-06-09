@@ -21,10 +21,11 @@ public class InventoryGridRenderer implements IModule {
         this.top = top;
     }
 
-    public void render(GuiGraphics g) {
+    @Override
+    public void render(GuiGraphics g, int left, int top, int mouseX, int mouseY) {
 
-        int startX = left + 200;
-        int startY = top + 70;
+        int startX = this.left + 200;
+        int startY = this.top + 70;
 
         for (int x = 0; x < cols; x++) {
             for (int y = 0; y < rows; y++) {
@@ -36,26 +37,4 @@ public class InventoryGridRenderer implements IModule {
             }
         }
     }
-
-    public int getSlotAt(double mouseX, double mouseY) {
-
-        int startX = left + 200;
-        int startY = top + 70;
-
-        int col = (int) ((mouseX - startX) / CELL);
-        int row = (int) ((mouseY - startY) / CELL);
-
-        if (col < 0 || row < 0 || col >= cols || row >= rows) return -1;
-
-        return col + row * cols;
-    }
-
-    @Override
-    public void mouseClicked(double mouseX, double mouseY, int button, int screenX, int screenY) {}
-
-    @Override
-    public void mouseReleased(double mouseX, double mouseY, int button) {}
-
-    @Override
-    public void mouseDragged(double mouseX, double mouseY, int button, double dx, double dy, DragState drag) {}
 }
