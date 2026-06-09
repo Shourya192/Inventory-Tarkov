@@ -9,13 +9,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * CLEAN CONTROLLER:
- * - No inventory logic
- * - No rig logic
- * - No loot logic
- * - Only delegates rendering + input
- */
 public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInventoryMenu> {
 
     // ── Modules ─────────────────────────────
@@ -33,9 +26,13 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     protected void init() {
         super.init();
 
-        // Initialize module positions
-        equipment.init(leftPos, topPos);
-        grid.init(leftPos, topPos);
+        int x = leftPos;
+        int y = topPos;
+
+        equipment.init(x, y);
+        grid.init(x, y);
+        loot.init(x, y);
+        vicinity.init(x, y);
     }
 
     // ───────────────────────────────────────
@@ -45,15 +42,18 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     @Override
     public void render(@NotNull GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 
-        this.renderBackground(g);
+        renderBackground(g);
 
-        // CORE MODULES
-        equipment.render(g);
-        grid.render(g);
-        loot.render(g, leftPos, topPos);
-        vicinity.render(g, leftPos, topPos);
+        int x = leftPos;
+        int y = topPos;
 
-        // Drag preview (if any)
+        // IMPORTANT: consistent anchor for ALL modules
+        equipment.render(g, x, y, mouseX, mouseY);
+        grid.render(g, x, y, mouseX, mouseY);
+        vicinity.render(g, x, y, mouseX, mouseY);
+        loot.render(g, x, y, mouseX, mouseY);
+
+        // Drag preview (always top layer)
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
@@ -63,31 +63,52 @@ public class TarkovInventoryScreen extends AbstractContainerScreen<TarkovInvento
     }
 
     @Override
-protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-
-    guiGraphics.fill(
-            leftPos,
-            topPos,
-            leftPos + imageWidth,
-            topPos + imageHeight,
-            0xFF101010
-    );
-}
+    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+        guiGraphics.fill(
+                leftPos,
+                topPos,
+                leftPos + imageWidth,
+                topPos + imageHeight,
+                0xFF101010
+        );
+    }
 
     // ───────────────────────────────────────
-    // MOUSE HANDLING (forwarding only)
+    // INPUT (FIXED - FULL ROUTING)
     // ───────────────────────────────────────
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
 
-        int slot = grid.getSlotAt(mouseX, mouseY);
+        int x = leftPos;
+        int y = topPos;
 
-        if (slot >= 0) {
-            // future: router call here
-            return true;
-        }
+        // ORDER MATTERS (top-most UI first)
+
+        if (loot.mouseClicked(mouseX, mouseY, button, x, y)) return true;
+        if (vicinity.mouseClicked(mouseX, mouseY, button, x, y)) return true;
+        if (equipment.mouseClicked(mouseX, mouseY, button, x, y)) return true;
+        if (grid.mouseClicked(mouseX, mouseY, button, x, y)) return true;
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+
+        equipment.mouseReleased(mouseX, mouseY, button);
+        grid.mouseReleased(mouseX, mouseY, button);
+        loot.mouseReleased(mouseX, mouseY, button);
+
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+
+        grid.mouseDragged(mouseX, mouseY, button, dx, dy, dragState);
+        loot.mouseDragged(mouseX, mouseY, button, dx, dy, dragState);
+
+        return super.mouseDragged(mouseX, mouseY, button, dx, dy);
     }
 }
