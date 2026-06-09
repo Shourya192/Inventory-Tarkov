@@ -4,16 +4,10 @@ import net.minecraft.client.gui.GuiGraphics;
 
 public class LootPanelRenderer {
 
-    private int left;
-    private int top;
-
     public void render(GuiGraphics g, int left, int top) {
 
-        this.left = left;
-        this.top = top;
-
-        int x = left + 300;
-        int y = top + 10;
+        int x = left;
+        int y = top;
 
         g.fill(x, y, x + 150, y + 220, 0xFF2A1010);
 
