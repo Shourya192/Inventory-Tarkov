@@ -1,6 +1,10 @@
 package com.tarkovinventory.client.screen;
 
-import com.tarkovinventory.client.screen.modules.*;
+import com.tarkovinventory.client.screen.modules.DragState;
+import com.tarkovinventory.client.screen.modules.EquipmentPanelRenderer;
+import com.tarkovinventory.client.screen.modules.InventoryGridRenderer;
+import com.tarkovinventory.client.screen.modules.LootPanelRenderer;
+import com.tarkovinventory.client.screen.modules.VicinityRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -28,24 +32,21 @@ public class TarkovInventoryScreen extends Screen {
     protected void init() {
         super.init();
 
-        int spacing = 40;
+        int spacing = 35;
 
-        // Panel sizes (must match your actual UI blocks)
         int equipmentW = 180;
-        int gridW = (5 * 17) + 20; // 5 columns + padding
+        int gridW = (10 * 18) + 32;
         int rightW = 320;
 
-        int totalW = equipmentW + gridW + rightW + spacing * 2;
+        int totalW = equipmentW + gridW + rightW + (spacing * 2);
 
-        // 🔥 TRUE CENTERING FIX (NO LEFT DRIFT)
-        int startX = (this.width / 2) - (totalW / 2);
+        int startX = (this.width - totalW) / 2;
 
-        this.topY = (this.height - 220) / 2;
+        this.topY = (this.height - 260) / 2;
 
-        // Final anchors
         this.leftX = startX;
-        this.centerX = startX + equipmentW + spacing;
-        this.rightX = startX + equipmentW + gridW + spacing * 2;
+        this.centerX = leftX + equipmentW + spacing;
+        this.rightX = centerX + gridW + spacing;
 
         equipment.init(leftX, topY);
         grid.init(centerX, topY);
@@ -56,17 +57,14 @@ public class TarkovInventoryScreen extends Screen {
 
         renderBackground(g);
 
-        // LEFT (equipment with background)
-        equipment.renderWithBackground(g);
+        grid.updateHover(mouseX, mouseY);
 
-        // CENTER (backpack grid with background)
+        equipment.renderWithBackground(g);
         grid.renderWithBackground(g);
 
-        // RIGHT (loot + vicinity)
         loot.render(g, rightX, topY);
         vicinity.render(g, rightX, topY + 240);
 
-        // Drag item preview
         if (dragState.isDragging()) {
             ItemStack stack = dragState.getDragging();
             g.renderItem(stack, mouseX - 8, mouseY - 8);
@@ -77,7 +75,7 @@ public class TarkovInventoryScreen extends Screen {
 
     @Override
     public void renderBackground(@NotNull GuiGraphics g) {
-        g.fill(0, 0, width, height, 0xAA000000);
+        g.fill(0, 0, width, height, 0xCC000000);
     }
 
     @Override
