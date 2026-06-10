@@ -11,7 +11,6 @@ public class EquipmentPanelRenderer {
     private int left;
     private int top;
 
-    // 🧍 silhouette texture
     private static final ResourceLocation SILHOUETTE =
             new ResourceLocation("tarkovinventory", "textures/ui/silhouette.png");
 
@@ -21,7 +20,7 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // SLOT RENDER
+    // SLOT BOX
     // ======================
     private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
 
@@ -35,14 +34,14 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // LABELS
+    // LABEL
     // ======================
     private void label(GuiGraphics g, String text, int x, int y) {
         g.drawString(mc.font, text, x, y, 0xFFB0B0B0, false);
     }
 
     // ======================
-    // MAIN RENDER (ONLY METHOD YOU CALL)
+    // MAIN RENDER
     // ======================
     public void render(GuiGraphics g) {
 
@@ -50,81 +49,84 @@ public class EquipmentPanelRenderer {
         int y = top;
 
         int s = 24;
-        int hGap = 12;
         int vGap = 6;
 
-        int col1 = x;
-        int col2 = x + s + hGap;
-        int col3 = x + (s * 2) + (hGap * 2);
+        // ======================
+        // REAL EFT-STYLE LAYOUT ZONES
+        // ======================
 
-        int panelWidth = (s * 3) + (hGap * 2);
+        int leftCol = x;
+        int centerCol = x + 90;     // body / pants / boots column
+        int rightCol = x + 180;     // weapons / chest / head side
+
+        int panelWidth = 260;
 
         // ======================
-        // BACKGROUND SILHOUETTE
+        // SILHOUETTE (CENTER FOCUS)
         // ======================
         g.blit(
                 SILHOUETTE,
-                x + (panelWidth / 2) - 32,
+                x + (panelWidth / 2) - 40,
                 y + 10,
                 0, 0,
-                64, 200,
-                64, 200
+                80, 200,
+                80, 200
         );
 
         // ======================
         // ROW 1
         // ======================
-        label(g, "BALACLAVA", col1, y - 8);
-        label(g, "HEAD", col3, y - 8);
+        label(g, "BALACLAVA", leftCol, y - 8);
+        label(g, "HEAD", rightCol, y - 8);
 
-        slot(g, col1, y, col1 + s, y + s);
-        slot(g, col3, y, col3 + s, y + s);
+        slot(g, leftCol, y, leftCol + s, y + s);
+        slot(g, rightCol, y, rightCol + s, y + s);
 
         // ======================
         // ROW 2
         // ======================
-        label(g, "EAR", col1, y + (s + vGap) - 8);
-        label(g, "FACE", col3, y + (s + vGap) - 8);
+        label(g, "EAR", leftCol, y + (s + vGap) - 8);
+        label(g, "FACE", rightCol, y + (s + vGap) - 8);
 
-        slot(g, col1, y + (s + vGap), col1 + s, y + (s + vGap) + s);
-        slot(g, col3, y + (s + vGap), col3 + s, y + (s + vGap) + s);
-
-        // ======================
-        // ROW 3
-        // ======================
-        label(g, "RIG", col1, y + (s + vGap) * 2 - 8);
-        label(g, "CHEST", col3, y + (s + vGap) * 2 - 8);
-
-        slot(g, col1, y + (s + vGap) * 2, col1 + s, y + (s + vGap) * 2 + s);
-        slot(g, col3, y + (s + vGap) * 2, col3 + s, y + (s + vGap) * 2 + s);
+        slot(g, leftCol, y + (s + vGap), leftCol + s, y + (s + vGap) + s);
+        slot(g, rightCol, y + (s + vGap), rightCol + s, y + (s + vGap) + s);
 
         // ======================
-        // CENTER BODY
+        // ROW 3 (ARMOR)
         // ======================
-        label(g, "PANTS", col2, y + (s + vGap) * 3 - 8);
-        slot(g, col2, y + (s + vGap) * 3, col2 + s, y + (s + vGap) * 3 + s);
+        label(g, "RIG", leftCol, y + (s + vGap) * 2 - 8);
+        label(g, "CHEST", rightCol, y + (s + vGap) * 2 - 8);
 
-        label(g, "KNEES", col2, y + (s + vGap) * 4 - 8);
-        slot(g, col2, y + (s + vGap) * 4, col2 + s, y + (s + vGap) * 4 + s);
-
-        label(g, "BOOTS", col2, y + (s + vGap) * 5 - 8);
-        slot(g, col2, y + (s + vGap) * 5, col2 + s, y + (s + vGap) * 5 + s);
+        slot(g, leftCol, y + (s + vGap) * 2, leftCol + s, y + (s + vGap) * 2 + s);
+        slot(g, rightCol, y + (s + vGap) * 2, rightCol + s, y + (s + vGap) * 2 + s);
 
         // ======================
-        // BACKPACK
+        // CENTER BODY COLUMN
         // ======================
-        label(g, "BACKPACK", col1, y + (s + vGap) * 6 - 8);
-        slot(g, col1, y + (s + vGap) * 6, col1 + s, y + (s + vGap) * 6 + s);
+        label(g, "PANTS", centerCol, y + (s + vGap) * 3 - 8);
+        slot(g, centerCol, y + (s + vGap) * 3, centerCol + s, y + (s + vGap) * 3 + s);
+
+        label(g, "KNEES", centerCol, y + (s + vGap) * 4 - 8);
+        slot(g, centerCol, y + (s + vGap) * 4, centerCol + s, y + (s + vGap) * 4 + s);
+
+        label(g, "BOOTS", centerCol, y + (s + vGap) * 5 - 8);
+        slot(g, centerCol, y + (s + vGap) * 5, centerCol + s, y + (s + vGap) * 5 + s);
 
         // ======================
-        // WEAPONS
+        // BACKPACK (LEFT SIDE)
+        // ======================
+        label(g, "BACKPACK", leftCol, y + (s + vGap) * 6 - 8);
+        slot(g, leftCol, y + (s + vGap) * 6, leftCol + s, y + (s + vGap) * 6 + s);
+
+        // ======================
+        // WEAPONS (RIGHT SIDE WIDE)
         // ======================
         int wY = y + (s + vGap) * 7 + vGap;
 
-        label(g, "PRIMARY", x, wY - 8);
-        slot(g, x, wY, x + panelWidth, wY + s);
+        label(g, "PRIMARY", rightCol, wY - 8);
+        slot(g, rightCol, wY, rightCol + s, wY + s);
 
-        label(g, "SECONDARY", x, wY + s + vGap - 8);
-        slot(g, x, wY + s + vGap, x + panelWidth, wY + (s * 2) + vGap);
+        label(g, "SECONDARY", rightCol, wY + s + vGap - 8);
+        slot(g, rightCol, wY + s + vGap, rightCol + s, wY + (s * 2) + vGap);
     }
 }
