@@ -12,140 +12,128 @@ public class EquipmentPanelRenderer {
         this.top = top;
     }
 
-    // Styled slot renderer
     private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
 
-        // outer border shadow
         g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
-
-        // main slot body
         g.fill(x1, y1, x2, y2, 0xFF1C1C1C);
-
-        // top highlight
         g.fill(x1, y1, x2, y1 + 1, 0xFF2A2A2A);
-
-        // inner depth
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF171717);
     }
 
     public void render(GuiGraphics g) {
 
-        int x = left;
-        int y = top;
-
         int s = 28;
         int gap = 6;
 
-        // ===== Row 1 =====
-        slot(g,
-                x,
-                y,
-                x + s,
-                y + s
-        ); // Balaclava
+        // =========================
+        // PANEL SIZE (IMPORTANT FIX)
+        // =========================
+        int panelWidth = (s * 3) + (gap * 2);
+        int panelHeight = 260;
+
+        int x = left;
+        int y = top;
+
+        // center content horizontally inside panel
+        int cx = x + (panelWidth / 2) - (s / 2);
+
+        // =========================
+        // ROW OFFSETS (NO OVERLAP)
+        // =========================
+        int r1 = y;
+        int r2 = y + (s + gap);
+        int r3 = y + (s + gap) * 2;
+        int r4 = y + (s + gap) * 3;
+        int r5 = y + (s + gap) * 4;
+        int r6 = y + (s + gap) * 5;
+
+        // =========================
+        // TOP ROWS (CENTERED PAIRS)
+        // =========================
+
+        slot(g, x, r1, x + s, r1 + s);                 // Balaclava
+        slot(g, x + s + gap, r1, x + s * 2 + gap, r1 + s); // Head
+
+        slot(g, x, r2, x + s, r2 + s);                 // Ear
+        slot(g, x + s + gap, r2, x + s * 2 + gap, r2 + s); // Face
+
+        slot(g, x, r3, x + s, r3 + s);                 // Rig
+        slot(g, x + s + gap, r3, x + s * 2 + gap, r3 + s); // Chest
+
+        // =========================
+        // MIDDLE BODY (CENTERED)
+        // =========================
 
         slot(g,
-                x + s + gap,
-                y,
-                x + (s * 2) + gap,
-                y + s
-        ); // Head
-
-        // ===== Row 2 =====
-        slot(g,
-                x,
-                y + s + gap,
-                x + s,
-                y + (s * 2) + gap
-        ); // Ear
-
-        slot(g,
-                x + s + gap,
-                y + s + gap,
-                x + (s * 2) + gap,
-                y + (s * 2) + gap
-        ); // Face
-
-        // ===== Row 3 =====
-        slot(g,
-                x,
-                y + (s + gap) * 2,
-                x + s,
-                y + (s + gap) * 3
-        ); // Rig
-
-        slot(g,
-                x + s + gap,
-                y + (s + gap) * 2,
-                x + (s * 2) + gap,
-                y + (s + gap) * 3
-        ); // Chest
-
-        // ===== Row 4 (Pants centered) =====
-        slot(g,
-                x + (s / 2),
-                y + (s + gap) * 3,
-                x + (s + (s / 2)),
-                y + (s + gap) * 4
+                cx,
+                r4,
+                cx + s,
+                r4 + s
         ); // Pants
 
-        // ===== Row 5 =====
         slot(g,
-                x + (s / 2),
-                y + (s + gap) * 4,
-                x + s,
-                y + (s + gap) * 5
+                cx,
+                r5,
+                cx + s,
+                r5 + s
         ); // Knees
 
         slot(g,
-                x + s,
-                y + (s + gap) * 4,
-                x + (s + (s / 2)),
-                y + (s + gap) * 5
+                cx + s + gap,
+                r5,
+                cx + (s * 2) + gap,
+                r5 + s
         ); // Boots
 
-        // ===== Backpack =====
+        // =========================
+        // BACKPACK (LEFT SIDE)
+        // =========================
+
         slot(g,
                 x,
-                y + (s + gap) * 5,
+                r4,
                 x + s,
-                y + (s + gap) * 7
+                r6 + s
         );
 
-        // ===== Weapons =====
-        int wY = y + (s + gap) * 7 + 10;
+        // =========================
+        // WEAPONS (CLAMPED INSIDE PANEL)
+        // =========================
+
+        int wY = r6 + s + 10;
 
         slot(g,
                 x,
                 wY,
-                x + s * 3,
+                x + panelWidth,
                 wY + s
         ); // Primary
 
         slot(g,
                 x,
                 wY + s + gap,
-                x + s * 3,
+                x + panelWidth,
                 wY + (s * 2) + gap
         ); // Secondary
     }
 
     public void renderWithBackground(GuiGraphics g) {
 
+        int s = 28;
+        int gap = 6;
+
+        int panelWidth = (s * 3) + (gap * 2);
+        int panelHeight = 260;
+
         int x = left;
         int y = top;
 
-        int width = 140;
-        int height = 270;
+        g.fill(x - 8, y - 8, x + panelWidth + 8, y + panelHeight + 8, 0xFF101010);
 
-        // background panel
-        g.fill(x - 8, y - 8, x + width, y + height, 0xFF101010);
-
-        // border frame
-        g.fill(x - 8, y - 8, x + width, y - 6, 0xFF2B2B2B);
-        g.fill(x - 8, y + height - 2, x + width, y + height, 0xFF2B2B2B);
-        g.fill(x - 8, y - 8, x - 6, y + height, 0xFF2B2B2B);
-        g.fill(x + width - 2, y - 8, x + width, y + height, 0xFF2B2B2B);
+        g.fill(x - 8, y - 8, x + panelWidth + 8, y - 6, 0xFF2B2B2B);
+        g.fill(x - 8, y + panelHeight + 6, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
+        g.fill(x - 8, y - 8, x - 6, y + panelHeight + 8, 0xFF2B2B2B);
+        g.fill(x + panelWidth + 6, y - 8, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
 
         render(g);
     }
