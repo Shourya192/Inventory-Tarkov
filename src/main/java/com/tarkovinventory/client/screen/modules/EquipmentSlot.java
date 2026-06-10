@@ -2,6 +2,7 @@ package com.tarkovinventory.client.screen.modules;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.item.ItemStack;
 
 public class EquipmentSlot {
 
@@ -11,12 +12,13 @@ public class EquipmentSlot {
 
     public boolean hovered;
 
-    // square slot constructor
+    // 🔥 ITEM STORAGE (REAL FUNCTIONALITY)
+    public ItemStack item = ItemStack.EMPTY;
+
     public EquipmentSlot(String name, int x, int y, int size) {
         this(name, x, y, size, size);
     }
 
-    // full rectangle slot constructor
     public EquipmentSlot(String name, int x, int y, int width, int height) {
         this.name = name;
 
@@ -28,17 +30,26 @@ public class EquipmentSlot {
 
     public void render(GuiGraphics g) {
 
-        int bg = hovered ? 0xFF1F1F1F : 0xFF161616;
-        int b1 = hovered ? 0xFF555555 : 0xFF2A2A2A;
-        int b2 = hovered ? 0xFF777777 : 0xFF3A3A3A;
+        int bg = hovered ? 0xFF242424 : 0xFF161616;
 
+        // slot base
         g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
         g.fill(x1, y1, x2, y2, bg);
 
-        g.fill(x1, y1, x1 + 1, y2, b1);
-        g.fill(x1, y1, x2, y1 + 1, b2);
-
+        // borders
+        g.fill(x1, y1, x1 + 1, y2, 0xFF2A2A2A);
+        g.fill(x1, y1, x2, y1 + 1, 0xFF3A3A3A);
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF101010);
+
+        // ======================
+        // ITEM RENDER
+        // ======================
+        if (!item.isEmpty()) {
+            Minecraft mc = Minecraft.getInstance();
+
+            g.renderItem(item, x1 + 4, y1 + 4);
+            g.renderItemDecorations(mc.font, item, x1 + 4, y1 + 4);
+        }
     }
 
     public void renderLabel(GuiGraphics g, Minecraft mc) {
