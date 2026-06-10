@@ -38,7 +38,7 @@ public class EquipmentPanelRenderer {
         int col2 = x + 70;
         int col3 = x + 150;
 
-        // LEFT + RIGHT ROWS
+        // LEFT + RIGHT
         slots.add(new EquipmentSlot("BALACLAVA", col1, y, s));
         slots.add(new EquipmentSlot("HEAD", col3, y, s));
 
@@ -56,11 +56,17 @@ public class EquipmentPanelRenderer {
         // BACKPACK
         slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
 
-        // WEAPONS (wide slots)
+        // ======================
+        // WEAPONS FIXED (IMPORTANT)
+        // ======================
         int wY = y + (s + vGap) * 7 + vGap;
 
-        slots.add(new EquipmentSlot("PRIMARY", x, wY, 120));
-        slots.add(new EquipmentSlot("SECONDARY", x, wY + s + vGap, 120));
+        int weaponPadding = 6;
+        int weaponWidth = (x + 260) - x - (weaponPadding * 2); // safe panel width
+        int wx = x + weaponPadding;
+
+        slots.add(new EquipmentSlot("PRIMARY", wx, wY, weaponWidth, s));
+        slots.add(new EquipmentSlot("SECONDARY", wx, wY + s + vGap, weaponWidth, s));
     }
 
     public void render(GuiGraphics g) {
@@ -76,7 +82,7 @@ public class EquipmentPanelRenderer {
         int panelWidth = (col3 + s) - col1;
 
         // ======================
-        // SILHOUETTE CENTER (FIXED)
+        // SILHOUETTE CENTER FIXED
         // ======================
         int silX = col1 + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
@@ -93,7 +99,7 @@ public class EquipmentPanelRenderer {
         );
 
         // ======================
-        // MOUSE HOVER UPDATE
+        // MOUSE HOVER
         // ======================
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
@@ -107,6 +113,13 @@ public class EquipmentPanelRenderer {
         // ======================
         for (EquipmentSlot slot : slots) {
             slot.render(g);
+        }
+
+        // ======================
+        // LABELS
+        // ======================
+        for (EquipmentSlot slot : slots) {
+            slot.renderLabel(g, mc);
         }
     }
 }
