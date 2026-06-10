@@ -33,7 +33,7 @@ public class EquipmentPanelRenderer {
         int y = top;
 
         int s = 24;
-        int vGap = 4; // tightened to match grid style
+        int vGap = 4;
 
         int col1 = x;
         int col2 = x + 70;
@@ -60,7 +60,7 @@ public class EquipmentPanelRenderer {
         slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
 
         // ======================
-        // WEAPON SLOTS (FIXED PROPERLY)
+        // WEAPON SLOTS (FIXED)
         // ======================
         int weaponHeight = s + 6;
 
@@ -80,66 +80,48 @@ public class EquipmentPanelRenderer {
         int y = top;
 
         int s = 24;
+        int vGap = 4;
 
         int panelWidth = 190;
 
         // ======================
-        // MATCH MIDDLE GRID HEIGHT EXACTLY
+        // FIXED PANEL HEIGHT (NO MORE CUT-OFF)
         // ======================
-        int panelHeight = 16 * 18; // 288px (from your InventoryGridRenderer)
+
+        int normalRows = 7;
+        int weaponHeight = s + 6;
+
+        int normalHeight = normalRows * (s + vGap);
+        int weaponBlockHeight = (weaponHeight * 2) + vGap;
+
+        int panelHeight = normalHeight + weaponBlockHeight;
+
+        // match inventory grid baseline (safe alignment)
+        panelHeight = Math.max(panelHeight, 16 * 18);
 
         // ======================
-        // BACK PANEL (CLEAN EFT STYLE)
+        // BACK PANEL
         // ======================
-        g.fill(
-                x - 10,
-                y - 10,
-                x + panelWidth + 10,
-                y + panelHeight + 10,
-                0x66000000
-        );
+        g.fill(x - 10, y - 10, x + panelWidth + 10, y + panelHeight + 10, 0x66000000);
+        g.fill(x - 6, y - 6, x + panelWidth + 6, y + panelHeight + 6, 0xFF101010);
+        g.fill(x - 4, y - 4, x + panelWidth + 4, y + panelHeight + 4, 0xFF1A1A1A);
 
-        g.fill(
-                x - 6,
-                y - 6,
-                x + panelWidth + 6,
-                y + panelHeight + 6,
-                0xFF101010
-        );
-
-        g.fill(
-                x - 4,
-                y - 4,
-                x + panelWidth + 4,
-                y + panelHeight + 4,
-                0xFF1A1A1A
-        );
-
-        // subtle border
+        // border
         g.fill(x - 4, y - 4, x + panelWidth + 4, y - 3, 0xFF2B2B2B);
         g.fill(x - 4, y - 4, x - 3, y + panelHeight + 4, 0xFF2B2B2B);
         g.fill(x + panelWidth + 3, y - 4, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
         g.fill(x - 4, y + panelHeight + 3, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
 
         // ======================
-        // SILHOUETTE CENTERED
+        // SILHOUETTE
         // ======================
         int silX = x + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
 
-        g.blit(
-                SILHOUETTE,
-                silX,
-                silY,
-                0, 0,
-                SIL_W,
-                SIL_H,
-                SIL_W,
-                SIL_H
-        );
+        g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
         // ======================
-        // HOVER CHECK
+        // HOVER
         // ======================
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
