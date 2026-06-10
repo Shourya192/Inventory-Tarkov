@@ -24,11 +24,10 @@ public class EquipmentPanelRenderer {
         int x = left;
         int y = top;
 
-        int s = 30;     // slot size
-        int hGap = 12;  // horizontal gap
-        int vGap = 8;   // vertical gap
+        int s = 24;    // reduced from 36 to shrink total height
+        int hGap = 12;
+        int vGap = 6;
 
-        // Column X positions
         int col1 = x;
         int col2 = x + s + hGap;
         int col3 = x + (s * 2) + (hGap * 2);
@@ -70,9 +69,9 @@ public class EquipmentPanelRenderer {
         int x = left;
         int y = top;
 
-        int s = 30;
+        int s = 24;
         int hGap = 12;
-        int vGap = 8;
+        int vGap = 6;
 
         int panelWidth = (s * 3) + (hGap * 2);
         int panelHeight = (s + vGap) * 9 + s;
