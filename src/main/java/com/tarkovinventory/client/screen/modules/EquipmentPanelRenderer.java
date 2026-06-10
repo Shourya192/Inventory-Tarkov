@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.util.*;
 
@@ -21,13 +22,13 @@ public class EquipmentPanelRenderer {
     private static final int SIL_H = 256;
 
     private final List<EquipmentSlot> slots = new ArrayList<>();
-
-    // lookup system
     private final Map<String, EquipmentSlot> slotMap = new HashMap<>();
 
-    // DRAG SYSTEM
     private ItemStack carriedItem = ItemStack.EMPTY;
 
+    // ======================
+    // INIT
+    // ======================
     public void init(int left, int top) {
 
         this.left = left;
@@ -49,7 +50,7 @@ public class EquipmentPanelRenderer {
         int panelWidth = 190;
 
         // ======================
-        // SLOTS
+        // EQUIPMENT SLOTS
         // ======================
         add("HEAD", EquipmentSlotType.HEAD, col3, y, s);
         add("BALACLAVA", EquipmentSlotType.FACE, col1, y, s);
@@ -66,11 +67,19 @@ public class EquipmentPanelRenderer {
 
         add("BACKPACK", EquipmentSlotType.BACKPACK, col1, y + (s + vGap) * 6, s);
 
+        // ======================
+        // WEAPONS
+        // ======================
         int weaponHeight = s + 6;
         int wY = y + (s + vGap) * 7 + 2;
 
         add("PRIMARY", EquipmentSlotType.WEAPON, x + 4, wY, panelWidth - 8, weaponHeight);
         add("SECONDARY", EquipmentSlotType.WEAPON, x + 4, wY + weaponHeight + vGap, panelWidth - 8, weaponHeight);
+
+        // ======================
+        // TEST ITEMS (OPTION 3)
+        // ======================
+        giveTestItems();
     }
 
     private void add(String id, EquipmentSlotType type, int x, int y, int size) {
@@ -84,7 +93,28 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // DRAG & DROP LOGIC
+    // TEST ITEMS (OPTION 3)
+    // ======================
+    private void giveTestItems() {
+
+        if (slotMap.get("HEAD") != null)
+            slotMap.get("HEAD").item = new ItemStack(Items.IRON_HELMET);
+
+        if (slotMap.get("CHEST") != null)
+            slotMap.get("CHEST").item = new ItemStack(Items.IRON_CHESTPLATE);
+
+        if (slotMap.get("PRIMARY") != null)
+            slotMap.get("PRIMARY").item = new ItemStack(Items.DIAMOND_SWORD);
+
+        if (slotMap.get("SECONDARY") != null)
+            slotMap.get("SECONDARY").item = new ItemStack(Items.BOW);
+
+        if (slotMap.get("BACKPACK") != null)
+            slotMap.get("BACKPACK").item = new ItemStack(Items.CHEST);
+    }
+
+    // ======================
+    // DRAG & DROP
     // ======================
     public boolean mouseClicked(double mx, double my, int button) {
 
@@ -148,7 +178,7 @@ public class EquipmentPanelRenderer {
 
         g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
-        // mouse
+        // mouse position
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
 
@@ -165,7 +195,7 @@ public class EquipmentPanelRenderer {
             slot.renderLabel(g, mc);
         }
 
-        // render dragged item
+        // dragged item
         if (!carriedItem.isEmpty()) {
 
             int cx = (int) mx;
