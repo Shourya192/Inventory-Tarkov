@@ -22,9 +22,6 @@ public class EquipmentPanelRenderer {
 
     private final List<EquipmentSlot> slots = new ArrayList<>();
 
-    // ======================
-    // INIT
-    // ======================
     public void init(int left, int top) {
 
         this.left = left;
@@ -36,7 +33,7 @@ public class EquipmentPanelRenderer {
         int y = top;
 
         int s = 24;
-        int vGap = 6;
+        int vGap = 4; // tightened to match grid style
 
         int col1 = x;
         int col2 = x + 70;
@@ -63,47 +60,37 @@ public class EquipmentPanelRenderer {
         slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
 
         // ======================
-        // WEAPON SLOTS (FIXED RECTANGLES)
+        // WEAPON SLOTS (FIXED PROPERLY)
         // ======================
-        int wY = y + (s + vGap) * 7 + vGap;
+        int weaponHeight = s + 6;
+
+        int wY = y + (s + vGap) * 7 + 2;
 
         int weaponPadding = 4;
         int weaponWidth = panelWidth - (weaponPadding * 2);
         int wx = x + weaponPadding;
 
-        int weaponHeight = s + 6; // taller = real weapon slot feel
-
         slots.add(new EquipmentSlot("PRIMARY", wx, wY, weaponWidth, weaponHeight));
         slots.add(new EquipmentSlot("SECONDARY", wx, wY + weaponHeight + vGap, weaponWidth, weaponHeight));
     }
 
-    // ======================
-    // RENDER
-    // ======================
     public void render(GuiGraphics g) {
 
         int x = left;
         int y = top;
 
         int s = 24;
-        int vGap = 6;
 
         int panelWidth = 190;
 
         // ======================
-        // DYNAMIC PANEL HEIGHT (FIXED)
+        // MATCH MIDDLE GRID HEIGHT EXACTLY
         // ======================
-        int weaponHeight = s + 6;
-
-        int normalSlotsHeight = 7 * (s + vGap);
-        int weaponBlockHeight = (weaponHeight * 2) + vGap;
-
-        int panelHeight = normalSlotsHeight + weaponBlockHeight;
+        int panelHeight = 16 * 18; // 288px (from your InventoryGridRenderer)
 
         // ======================
-        // BACK PANEL (FULL COVER FIXED)
+        // BACK PANEL (CLEAN EFT STYLE)
         // ======================
-
         g.fill(
                 x - 10,
                 y - 10,
@@ -128,14 +115,14 @@ public class EquipmentPanelRenderer {
                 0xFF1A1A1A
         );
 
-        // subtle border frame
+        // subtle border
         g.fill(x - 4, y - 4, x + panelWidth + 4, y - 3, 0xFF2B2B2B);
         g.fill(x - 4, y - 4, x - 3, y + panelHeight + 4, 0xFF2B2B2B);
         g.fill(x + panelWidth + 3, y - 4, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
         g.fill(x - 4, y + panelHeight + 3, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
 
         // ======================
-        // SILHOUETTE CENTER
+        // SILHOUETTE CENTERED
         // ======================
         int silX = x + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
@@ -152,7 +139,7 @@ public class EquipmentPanelRenderer {
         );
 
         // ======================
-        // HOVER DETECTION
+        // HOVER CHECK
         // ======================
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
@@ -162,15 +149,12 @@ public class EquipmentPanelRenderer {
         }
 
         // ======================
-        // RENDER SLOTS
+        // RENDER
         // ======================
         for (EquipmentSlot slot : slots) {
             slot.render(g);
         }
 
-        // ======================
-        // LABELS
-        // ======================
         for (EquipmentSlot slot : slots) {
             slot.renderLabel(g, mc);
         }
