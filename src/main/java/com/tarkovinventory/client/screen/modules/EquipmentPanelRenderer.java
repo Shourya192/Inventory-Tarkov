@@ -11,9 +11,15 @@ public class EquipmentPanelRenderer {
     private int left;
     private int top;
 
-    // 🧍 silhouette texture
+    // 🧍 NEW SILHOUETTE TEXTURE (replace file with your uploaded PNG)
     private static final ResourceLocation SILHOUETTE =
             new ResourceLocation("tarkovinventory", "textures/ui/silhouette.png");
+
+    // ======================
+    // IMPORTANT: adjust if PNG changes
+    // ======================
+    private static final int SIL_W = 128;
+    private static final int SIL_H = 256;
 
     public void init(int left, int top) {
         this.left = left;
@@ -54,25 +60,29 @@ public class EquipmentPanelRenderer {
         int vGap = 6;
 
         // ======================
-        // FIXED ZONE COLUMNS (balanced layout)
+        // LAYOUT COLUMNS (balanced EFT style)
         // ======================
         int col1 = x;
         int col2 = x + 70;
         int col3 = x + 150;
 
-        // wider panel so nothing feels cramped
-        int panelWidth = (s * 3) + (hGap * 6);
+        int panelWidth = 260;
 
         // ======================
-        // SILHOUETTE (CENTER ANCHOR)
+        // 🧍 PROPER CENTERED SILHOUETTE
         // ======================
+        int silX = x + (panelWidth / 2) - (SIL_W / 2);
+        int silY = y + 10;
+
         g.blit(
                 SILHOUETTE,
-                x + 95,
-                y + 10,
+                silX,
+                silY,
                 0, 0,
-                64, 200,
-                64, 200
+                SIL_W,
+                SIL_H,
+                SIL_W,
+                SIL_H
         );
 
         // ======================
