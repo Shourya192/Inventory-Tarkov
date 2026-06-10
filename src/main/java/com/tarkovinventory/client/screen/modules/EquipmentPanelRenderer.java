@@ -4,6 +4,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class EquipmentPanelRenderer {
 
     private final Minecraft mc = Minecraft.getInstance();
@@ -11,31 +14,53 @@ public class EquipmentPanelRenderer {
     private int left;
     private int top;
 
-    // 🧍 SILHOUETTE TEXTURE
     private static final ResourceLocation SILHOUETTE =
             new ResourceLocation("tarkovinventory", "textures/ui/silhouette.png");
 
-    // PNG size (must match actual file resolution)
     private static final int SIL_W = 128;
     private static final int SIL_H = 256;
+
+    private final List<EquipmentSlot> slots = new ArrayList<>();
 
     public void init(int left, int top) {
         this.left = left;
         this.top = top;
-    }
 
-    private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
-        g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
-        g.fill(x1, y1, x2, y2, 0xFF161616);
+        slots.clear();
 
-        g.fill(x1, y1, x1 + 1, y2, 0xFF2A2A2A);
-        g.fill(x1, y1, x2, y1 + 1, 0xFF3A3A3A);
+        int x = left;
+        int y = top;
 
-        g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF101010);
-    }
+        int s = 24;
+        int vGap = 6;
 
-    private void label(GuiGraphics g, String text, int x, int y) {
-        g.drawString(mc.font, text, x, y, 0xFFB0B0B0, false);
+        int col1 = x;
+        int col2 = x + 70;
+        int col3 = x + 150;
+
+        // LEFT + RIGHT ROWS
+        slots.add(new EquipmentSlot("BALACLAVA", col1, y, s));
+        slots.add(new EquipmentSlot("HEAD", col3, y, s));
+
+        slots.add(new EquipmentSlot("EAR", col1, y + (s + vGap), s));
+        slots.add(new EquipmentSlot("FACE", col3, y + (s + vGap), s));
+
+        slots.add(new EquipmentSlot("RIG", col1, y + (s + vGap) * 2, s));
+        slots.add(new EquipmentSlot("CHEST", col3, y + (s + vGap) * 2, s));
+
+        // CENTER COLUMN
+        slots.add(new EquipmentSlot("PANTS", col2, y + (s + vGap) * 3, s));
+        slots.add(new EquipmentSlot("KNEES", col2, y + (s + vGap) * 4, s));
+        slots.add(new EquipmentSlot("BOOTS", col2, y + (s + vGap) * 5, s));
+
+        // BACKPACK
+        slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
+
+        // WEAPONS (wide slots)
+        int wY = y + (s + vGap) * 7 + vGap;
+
+        slots.add(new EquipmentSlot("PRIMARY", x, wY, 120));
+        slots.add(new EquipmentSlot("SECONDARY", x, wY + s + vGap, 120));
     }
 
     public void render(GuiGraphics g) {
@@ -44,31 +69,22 @@ public class EquipmentPanelRenderer {
         int y = top;
 
         int s = 24;
-        int vGap = 6;
 
-        // ======================
-        // COLUMN SETUP
-        // ======================
         int col1 = x;
-        int col2 = x + 70;
         int col3 = x + 150;
 
         int panelWidth = (col3 + s) - col1;
 
         // ======================
-        // 🧍 PERFECT SILHOUETTE CENTERING
+        // SILHOUETTE CENTER (FIXED)
         // ======================
         int silX = col1 + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
 
-        // tweak if PNG has transparent padding
-        int silOffsetX = 0;
-        int silOffsetY = 0;
-
         g.blit(
                 SILHOUETTE,
-                silX + silOffsetX,
-                silY + silOffsetY,
+                silX,
+                silY,
                 0, 0,
                 SIL_W,
                 SIL_H,
@@ -77,59 +93,20 @@ public class EquipmentPanelRenderer {
         );
 
         // ======================
-        // ROW 1
+        // MOUSE HOVER UPDATE
         // ======================
-        label(g, "BALACLAVA", col1, y - 8);
-        label(g, "HEAD", col3, y - 8);
+        double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
+        double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
 
-        slot(g, col1, y, col1 + s, y + s);
-        slot(g, col3, y, col3 + s, y + s);
-
-        // ======================
-        // ROW 2
-        // ======================
-        label(g, "EAR", col1, y + (s + vGap) - 8);
-        label(g, "FACE", col3, y + (s + vGap) - 8);
-
-        slot(g, col1, y + (s + vGap), col1 + s, y + (s + vGap) + s);
-        slot(g, col3, y + (s + vGap), col3 + s, y + (s + vGap) + s);
+        for (EquipmentSlot slot : slots) {
+            slot.hovered = slot.isMouseOver(mx, my);
+        }
 
         // ======================
-        // ROW 3
+        // RENDER SLOTS
         // ======================
-        label(g, "RIG", col1, y + (s + vGap) * 2 - 8);
-        label(g, "CHEST", col3, y + (s + vGap) * 2 - 8);
-
-        slot(g, col1, y + (s + vGap) * 2, col1 + s, y + (s + vGap) * 2 + s);
-        slot(g, col3, y + (s + vGap) * 2, col3 + s, y + (s + vGap) * 2 + s);
-
-        // ======================
-        // CENTER BODY
-        // ======================
-        label(g, "PANTS", col2, y + (s + vGap) * 3 - 8);
-        slot(g, col2, y + (s + vGap) * 3, col2 + s, y + (s + vGap) * 3 + s);
-
-        label(g, "KNEES", col2, y + (s + vGap) * 4 - 8);
-        slot(g, col2, y + (s + vGap) * 4, col2 + s, y + (s + vGap) * 4 + s);
-
-        label(g, "BOOTS", col2, y + (s + vGap) * 5 - 8);
-        slot(g, col2, y + (s + vGap) * 5, col2 + s, y + (s + vGap) * 5 + s);
-
-        // ======================
-        // BACKPACK
-        // ======================
-        label(g, "BACKPACK", col1, y + (s + vGap) * 6 - 8);
-        slot(g, col1, y + (s + vGap) * 6, col1 + s, y + (s + vGap) * 6 + s);
-
-        // ======================
-        // WEAPONS
-        // ======================
-        int wY = y + (s + vGap) * 7 + vGap;
-
-        label(g, "PRIMARY", x, wY - 8);
-        slot(g, x, wY, x + panelWidth, wY + s);
-
-        label(g, "SECONDARY", x, wY + s + vGap - 8);
-        slot(g, x, wY + s + vGap, x + panelWidth, wY + (s * 2) + vGap);
+        for (EquipmentSlot slot : slots) {
+            slot.render(g);
+        }
     }
 }
