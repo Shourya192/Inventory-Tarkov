@@ -24,39 +24,45 @@ public class EquipmentPanelRenderer {
         int x = left;
         int y = top;
 
-        int s = 36;    // was 28 — bigger slots
-        int gap = 10;  // was 6 — more breathing room
+        int s = 30;     // slot size
+        int hGap = 12;  // horizontal gap
+        int vGap = 8;   // vertical gap
 
-        int panelWidth = (s * 2) + gap;
+        // Column X positions
+        int col1 = x;
+        int col2 = x + s + hGap;
+        int col3 = x + (s * 2) + (hGap * 2);
+
+        int panelWidth = (s * 3) + (hGap * 2);
 
         // ROW 1
-        slot(g, x, y, x + s, y + s);                                                              // Balaclava
-        slot(g, x + s + gap, y, x + (s * 2) + gap, y + s);                                        // Head
+        slot(g, col1, y + (s + vGap) * 0, col1 + s, y + (s + vGap) * 0 + s);  // Balaclava
+        slot(g, col3, y + (s + vGap) * 0, col3 + s, y + (s + vGap) * 0 + s);  // Head
 
         // ROW 2
-        slot(g, x, y + (s + gap), x + s, y + (s * 2) + gap);                                      // Ear
-        slot(g, x + s + gap, y + (s + gap), x + (s * 2) + gap, y + (s * 2) + gap);                // Face
+        slot(g, col1, y + (s + vGap) * 1, col1 + s, y + (s + vGap) * 1 + s);  // Ear
+        slot(g, col3, y + (s + vGap) * 1, col3 + s, y + (s + vGap) * 1 + s);  // Face
 
         // ROW 3
-        slot(g, x, y + (s + gap) * 2, x + s, y + (s + gap) * 2 + s);                             // Rig
-        slot(g, x + s + gap, y + (s + gap) * 2, x + (s * 2) + gap, y + (s + gap) * 2 + s);       // Chest
+        slot(g, col1, y + (s + vGap) * 2, col1 + s, y + (s + vGap) * 2 + s);  // Rig
+        slot(g, col3, y + (s + vGap) * 2, col3 + s, y + (s + vGap) * 2 + s);  // Chest
 
-        // ROW 4 - Pants (right column only)
-        slot(g, x + s + gap, y + (s + gap) * 3, x + (s * 2) + gap, y + (s + gap) * 3 + s);       // Pants
+        // ROW 4 - Pants (center column)
+        slot(g, col2, y + (s + vGap) * 3, col2 + s, y + (s + vGap) * 3 + s);  // Pants
 
-        // ROW 5 - Knees (right column only)
-        slot(g, x + s + gap, y + (s + gap) * 4, x + (s * 2) + gap, y + (s + gap) * 4 + s);       // Knees
+        // ROW 5 - Knees (center column)
+        slot(g, col2, y + (s + vGap) * 4, col2 + s, y + (s + vGap) * 4 + s);  // Knees
 
-        // ROW 6 - Boots (right column only)
-        slot(g, x + s + gap, y + (s + gap) * 5, x + (s * 2) + gap, y + (s + gap) * 5 + s);       // Boots
+        // ROW 6 - Boots (center column)
+        slot(g, col2, y + (s + vGap) * 5, col2 + s, y + (s + vGap) * 5 + s);  // Boots
 
-        // ROW 7 - Backpack (left column only)
-        slot(g, x, y + (s + gap) * 6, x + s, y + (s + gap) * 6 + s);                             // Backpack
+        // ROW 7 - Backpack (left column)
+        slot(g, col1, y + (s + vGap) * 6, col1 + s, y + (s + vGap) * 6 + s);  // Backpack
 
         // WEAPONS
-        int wY = y + (s + gap) * 7 + gap;
-        slot(g, x, wY, x + panelWidth, wY + s);                                                    // Primary
-        slot(g, x, wY + s + gap, x + panelWidth, wY + (s * 2) + gap);                             // Secondary
+        int wY = y + (s + vGap) * 7 + vGap;
+        slot(g, x, wY, x + panelWidth, wY + s);                                 // Primary
+        slot(g, x, wY + s + vGap, x + panelWidth, wY + (s * 2) + vGap);        // Secondary
     }
 
     public void renderWithBackground(GuiGraphics g) {
@@ -64,11 +70,12 @@ public class EquipmentPanelRenderer {
         int x = left;
         int y = top;
 
-        int s = 36;
-        int gap = 10;
+        int s = 30;
+        int hGap = 12;
+        int vGap = 8;
 
-        int panelWidth = (s * 2) + gap;
-        int panelHeight = (s + gap) * 9 + s;
+        int panelWidth = (s * 3) + (hGap * 2);
+        int panelHeight = (s + vGap) * 9 + s;
 
         // background panel
         g.fill(x - 10, y - 10, x + panelWidth + 10, y + panelHeight + 10, 0xFF101010);
