@@ -57,7 +57,7 @@ public class TarkovInventoryScreen extends Screen {
 
         grid.updateHover(mouseX, mouseY);
 
-        equipment.renderWithBackground(g);
+        equipment.render(g);
         grid.renderWithBackground(g);
 
         rightPanel.render(g, rightX, topY);
