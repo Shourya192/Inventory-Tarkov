@@ -1,5 +1,6 @@
 package com.tarkovinventory.client.screen.modules;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
 public class EquipmentSlot {
@@ -10,13 +11,19 @@ public class EquipmentSlot {
 
     public boolean hovered;
 
-    public EquipmentSlot(String name, int x1, int y1, int size) {
+    // square slot constructor
+    public EquipmentSlot(String name, int x, int y, int size) {
+        this(name, x, y, size, size);
+    }
+
+    // full rectangle slot constructor
+    public EquipmentSlot(String name, int x, int y, int width, int height) {
         this.name = name;
 
-        this.x1 = x1;
-        this.y1 = y1;
-        this.x2 = x1 + size;
-        this.y2 = y1 + size;
+        this.x1 = x;
+        this.y1 = y;
+        this.x2 = x + width;
+        this.y2 = y + height;
     }
 
     public void render(GuiGraphics g) {
@@ -32,6 +39,10 @@ public class EquipmentSlot {
         g.fill(x1, y1, x2, y1 + 1, b2);
 
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF101010);
+    }
+
+    public void renderLabel(GuiGraphics g, Minecraft mc) {
+        g.drawString(mc.font, name, x1, y1 - 10, 0xFFB0B0B0, false);
     }
 
     public boolean isMouseOver(double mx, double my) {
