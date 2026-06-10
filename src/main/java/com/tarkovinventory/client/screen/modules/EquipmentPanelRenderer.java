@@ -50,7 +50,7 @@ public class EquipmentPanelRenderer {
         int panelWidth = 190;
 
         // ======================
-        // EQUIPMENT SLOTS
+        // SLOTS
         // ======================
         add("HEAD", EquipmentSlotType.HEAD, col3, y, s);
         add("BALACLAVA", EquipmentSlotType.FACE, col1, y, s);
@@ -67,9 +67,6 @@ public class EquipmentPanelRenderer {
 
         add("BACKPACK", EquipmentSlotType.BACKPACK, col1, y + (s + vGap) * 6, s);
 
-        // ======================
-        // WEAPONS
-        // ======================
         int weaponHeight = s + 6;
         int wY = y + (s + vGap) * 7 + 2;
 
@@ -77,7 +74,7 @@ public class EquipmentPanelRenderer {
         add("SECONDARY", EquipmentSlotType.WEAPON, x + 4, wY + weaponHeight + vGap, panelWidth - 8, weaponHeight);
 
         // ======================
-        // TEST ITEMS (OPTION 3)
+        // TEST ITEMS
         // ======================
         giveTestItems();
     }
@@ -93,7 +90,7 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // TEST ITEMS (OPTION 3)
+    // TEST ITEMS
     // ======================
     private void giveTestItems() {
 
@@ -108,17 +105,18 @@ public class EquipmentPanelRenderer {
 
         if (slotMap.get("SECONDARY") != null)
             slotMap.get("SECONDARY").item = new ItemStack(Items.BOW);
-
-        if (slotMap.get("BACKPACK") != null)
-            slotMap.get("BACKPACK").item = new ItemStack(Items.CHEST);
     }
 
     // ======================
-    // DRAG & DROP
+    // CLICK (FIXED)
     // ======================
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
 
         if (button != 0) return false;
+
+        // IMPORTANT FIX: DO NOT SCALE MOUSE
+        double mx = mouseX;
+        double my = mouseY;
 
         for (EquipmentSlot slot : slots) {
 
@@ -146,16 +144,6 @@ public class EquipmentPanelRenderer {
         return false;
     }
 
-    public boolean mouseReleased(double mx, double my, int button) {
-
-        if (button == 1 && !carriedItem.isEmpty()) {
-            carriedItem = ItemStack.EMPTY;
-            return true;
-        }
-
-        return false;
-    }
-
     // ======================
     // RENDER
     // ======================
@@ -178,7 +166,7 @@ public class EquipmentPanelRenderer {
 
         g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
-        // mouse position
+        // FIXED MOUSE (ONLY FOR RENDER HOVER)
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
 
@@ -186,7 +174,6 @@ public class EquipmentPanelRenderer {
             slot.hovered = slot.isMouseOver(mx, my);
         }
 
-        // render slots
         for (EquipmentSlot slot : slots) {
             slot.render(g);
         }
@@ -195,7 +182,7 @@ public class EquipmentPanelRenderer {
             slot.renderLabel(g, mc);
         }
 
-        // dragged item
+        // DRAGGED ITEM
         if (!carriedItem.isEmpty()) {
 
             int cx = (int) mx;
