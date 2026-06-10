@@ -12,6 +12,15 @@ public class EquipmentPanelRenderer {
         this.top = top;
     }
 
+    // Styled slot renderer (unchanged - good system)
+    private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
+
+        g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
+        g.fill(x1, y1, x2, y2, 0xFF1C1C1C);
+        g.fill(x1, y1, x2, y1 + 1, 0xFF2A2A2A);
+        g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF171717);
+    }
+
     public void render(GuiGraphics g) {
 
         int x = left;
@@ -20,50 +29,85 @@ public class EquipmentPanelRenderer {
         int s = 28;
         int gap = 6;
 
-        // fixed center offset for body alignment
-        int centerX = x + 40;
+        // ===== FIXED PANEL WIDTH (important) =====
+        int panelWidth = (s * 2) + gap;
+
+        // ===== BODY CENTER COLUMN =====
+        int centerX = x + s; // perfect middle column
 
         // =========================
         // ROW 1
         // =========================
-        g.fill(x, y, x + s, y + s, 0xFF1A1A1A);                         // Balaclava
-        g.fill(x + s + gap, y, x + (s * 2) + gap, y + s, 0xFF1A1A1A);   // Head
+        slot(g, x, y, x + s, y + s);                             // Balaclava
+        slot(g, x + s + gap, y, x + (s * 2) + gap, y + s);       // Head
 
         // =========================
         // ROW 2
         // =========================
-        g.fill(x, y + s + gap, x + s, y + (s * 2) + gap, 0xFF1A1A1A);   // Ear
-        g.fill(x + s + gap, y + s + gap, x + (s * 2) + gap, y + (s * 2) + gap, 0xFF1A1A1A); // Face
+        slot(g, x, y + s + gap, x + s, y + (s * 2) + gap);       // Ear
+        slot(g, x + s + gap, y + s + gap, x + (s * 2) + gap, y + (s * 2) + gap); // Face
 
         // =========================
         // ROW 3
         // =========================
-        g.fill(x, y + (s + gap) * 2, x + s, y + (s + gap) * 3, 0xFF1A1A1A); // Rig
-        g.fill(x + s + gap, y + (s + gap) * 2, x + (s * 2) + gap, y + (s + gap) * 3, 0xFF1A1A1A); // Chest
+        slot(g, x, y + (s + gap) * 2, x + s, y + (s + gap) * 3); // Rig
+        slot(g, x + s + gap, y + (s + gap) * 2, x + (s * 2) + gap, y + (s + gap) * 3); // Chest
 
         // =========================
-        // ROW 4 (CENTERED)
+        // ROW 4 (PANTS CENTERED PROPERLY)
         // =========================
-        g.fill(centerX, y + (s + gap) * 3, centerX + s, y + (s + gap) * 4, 0xFF1A1A1A); // Pants
+        slot(g,
+                centerX,
+                y + (s + gap) * 3,
+                centerX + s,
+                y + (s + gap) * 4
+        );
 
         // =========================
-        // ROW 5
+        // ROW 5 (KNEES + BOOTS)
         // =========================
-        g.fill(centerX, y + (s + gap) * 4, centerX + s, y + (s + gap) * 5, 0xFF1A1A1A); // Knees
-        g.fill(centerX + s + gap, y + (s + gap) * 4, centerX + (s * 2) + gap, y + (s + gap) * 5, 0xFF1A1A1A); // Boots
+        slot(g,
+                centerX,
+                y + (s + gap) * 4,
+                centerX + s,
+                y + (s + gap) * 5
+        );
+
+        slot(g,
+                centerX + s + gap,
+                y + (s + gap) * 4,
+                centerX + (s * 2) + gap,
+                y + (s + gap) * 5
+        );
 
         // =========================
-        // BACKPACK
+        // BACKPACK (LEFT SIDE)
         // =========================
-        g.fill(x, y + (s + gap) * 5, x + s, y + (s + gap) * 7, 0xFF1A1A1A);
+        slot(g,
+                x,
+                y + (s + gap) * 5,
+                x + s,
+                y + (s + gap) * 7
+        );
 
         // =========================
-        // WEAPONS (FIXED INSIDE PANEL)
+        // WEAPONS (NO OVERFLOW FIX)
         // =========================
         int wY = y + (s + gap) * 7 + 10;
 
-        g.fill(x, wY, x + (s * 3), wY + s, 0xFF1A1A1A);                 // Primary
-        g.fill(x, wY + s + gap, x + (s * 3), wY + (s * 2) + gap, 0xFF1A1A1A); // Secondary
+        slot(g,
+                x,
+                wY,
+                x + panelWidth,
+                wY + s
+        ); // Primary
+
+        slot(g,
+                x,
+                wY + s + gap,
+                x + panelWidth,
+                wY + (s * 2) + gap
+        ); // Secondary
     }
 
     public void renderWithBackground(GuiGraphics g) {
@@ -74,17 +118,15 @@ public class EquipmentPanelRenderer {
         int s = 28;
         int gap = 6;
 
-        int width = (s * 3) + (gap * 2) + 40;
-        int height = 260;
+        int panelWidth = (s * 2) + gap;
+        int panelHeight = (s + gap) * 8;
 
-        // background panel
-        g.fill(x - 8, y - 8, x + width, y + height, 0xFF101010);
+        g.fill(x - 8, y - 8, x + panelWidth + 8, y + panelHeight + 8, 0xFF101010);
 
-        // border
-        g.fill(x - 8, y - 8, x + width, y - 6, 0xFF2B2B2B);
-        g.fill(x - 8, y + height - 2, x + width, y + height, 0xFF2B2B2B);
-        g.fill(x - 8, y - 8, x - 6, y + height, 0xFF2B2B2B);
-        g.fill(x + width - 2, y - 8, x + width, y + height, 0xFF2B2B2B);
+        g.fill(x - 8, y - 8, x + panelWidth + 8, y - 6, 0xFF2B2B2B);
+        g.fill(x - 8, y + panelHeight + 6, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
+        g.fill(x - 8, y - 8, x - 6, y + panelHeight + 8, 0xFF2B2B2B);
+        g.fill(x + panelWidth + 6, y - 8, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
 
         render(g);
     }
