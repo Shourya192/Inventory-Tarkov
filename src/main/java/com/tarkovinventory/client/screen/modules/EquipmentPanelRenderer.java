@@ -11,13 +11,11 @@ public class EquipmentPanelRenderer {
     private int left;
     private int top;
 
-    // 🧍 NEW SILHOUETTE TEXTURE (replace file with your uploaded PNG)
+    // 🧍 SILHOUETTE TEXTURE
     private static final ResourceLocation SILHOUETTE =
             new ResourceLocation("tarkovinventory", "textures/ui/silhouette.png");
 
-    // ======================
-    // IMPORTANT: adjust if PNG changes
-    // ======================
+    // PNG size (must match actual file resolution)
     private static final int SIL_W = 128;
     private static final int SIL_H = 256;
 
@@ -26,11 +24,7 @@ public class EquipmentPanelRenderer {
         this.top = top;
     }
 
-    // ======================
-    // SLOT RENDER
-    // ======================
     private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
-
         g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
         g.fill(x1, y1, x2, y2, 0xFF161616);
 
@@ -40,44 +34,41 @@ public class EquipmentPanelRenderer {
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF101010);
     }
 
-    // ======================
-    // LABELS
-    // ======================
     private void label(GuiGraphics g, String text, int x, int y) {
         g.drawString(mc.font, text, x, y, 0xFFB0B0B0, false);
     }
 
-    // ======================
-    // MAIN RENDER
-    // ======================
     public void render(GuiGraphics g) {
 
         int x = left;
         int y = top;
 
         int s = 24;
-        int hGap = 12;
         int vGap = 6;
 
         // ======================
-        // LAYOUT COLUMNS (balanced EFT style)
+        // COLUMN SETUP
         // ======================
         int col1 = x;
         int col2 = x + 70;
         int col3 = x + 150;
 
-        int panelWidth = 260;
+        int panelWidth = (col3 + s) - col1;
 
         // ======================
-        // 🧍 PROPER CENTERED SILHOUETTE
+        // 🧍 PERFECT SILHOUETTE CENTERING
         // ======================
-        int silX = x + (panelWidth / 2) - (SIL_W / 2);
+        int silX = col1 + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
+
+        // tweak if PNG has transparent padding
+        int silOffsetX = 0;
+        int silOffsetY = 0;
 
         g.blit(
                 SILHOUETTE,
-                silX,
-                silY,
+                silX + silOffsetX,
+                silY + silOffsetY,
                 0, 0,
                 SIL_W,
                 SIL_H,
