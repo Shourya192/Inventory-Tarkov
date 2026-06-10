@@ -12,12 +12,19 @@ public class EquipmentPanelRenderer {
         this.top = top;
     }
 
-    // Styled slot renderer (unchanged - good system)
+    // Styled slot renderer
     private void slot(GuiGraphics g, int x1, int y1, int x2, int y2) {
 
+        // outer border shadow
         g.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
+
+        // main slot body
         g.fill(x1, y1, x2, y2, 0xFF1C1C1C);
+
+        // top highlight
         g.fill(x1, y1, x2, y1 + 1, 0xFF2A2A2A);
+
+        // inner depth
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF171717);
     }
 
@@ -29,11 +36,15 @@ public class EquipmentPanelRenderer {
         int s = 28;
         int gap = 6;
 
-        // ===== FIXED PANEL WIDTH (important) =====
+        // =========================
+        // FIXED PANEL WIDTH (IMPORTANT)
+        // =========================
         int panelWidth = (s * 2) + gap;
 
-        // ===== BODY CENTER COLUMN =====
-        int centerX = x + s; // perfect middle column
+        // =========================
+        // FIXED BODY CENTER COLUMN
+        // =========================
+        int centerX = x + s + gap;
 
         // =========================
         // ROW 1
@@ -54,7 +65,7 @@ public class EquipmentPanelRenderer {
         slot(g, x + s + gap, y + (s + gap) * 2, x + (s * 2) + gap, y + (s + gap) * 3); // Chest
 
         // =========================
-        // ROW 4 (PANTS CENTERED PROPERLY)
+        // ROW 4 (PANTS CENTER FIXED)
         // =========================
         slot(g,
                 centerX,
@@ -81,7 +92,7 @@ public class EquipmentPanelRenderer {
         );
 
         // =========================
-        // BACKPACK (LEFT SIDE)
+        // BACKPACK
         // =========================
         slot(g,
                 x,
@@ -121,10 +132,12 @@ public class EquipmentPanelRenderer {
         int panelWidth = (s * 2) + gap;
         int panelHeight = (s + gap) * 8;
 
+        // background panel
         g.fill(x - 8, y - 8, x + panelWidth + 8, y + panelHeight + 8, 0xFF101010);
 
+        // border frame
         g.fill(x - 8, y - 8, x + panelWidth + 8, y - 6, 0xFF2B2B2B);
-        g.fill(x - 8, y + panelHeight + 6, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
+        g.fill(x - 8, y + panelHeight - 2, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
         g.fill(x - 8, y - 8, x - 6, y + panelHeight + 8, 0xFF2B2B2B);
         g.fill(x + panelWidth + 6, y - 8, x + panelWidth + 8, y + panelHeight + 8, 0xFF2B2B2B);
 
