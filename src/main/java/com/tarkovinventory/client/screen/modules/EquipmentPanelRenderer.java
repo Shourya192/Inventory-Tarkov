@@ -23,9 +23,10 @@ public class EquipmentPanelRenderer {
     private final List<EquipmentSlot> slots = new ArrayList<>();
 
     // ======================
-    // MAIN INIT
+    // INIT (LAYOUT)
     // ======================
     public void init(int left, int top) {
+
         this.left = left;
         this.top = top;
 
@@ -41,10 +42,10 @@ public class EquipmentPanelRenderer {
         int col2 = x + 70;
         int col3 = x + 150;
 
-        int panelWidth = 260;
+        int panelWidth = 190;
 
         // ======================
-        // LEFT + RIGHT SLOTS
+        // LEFT / RIGHT SLOTS
         // ======================
         slots.add(new EquipmentSlot("BALACLAVA", col1, y, s));
         slots.add(new EquipmentSlot("HEAD", col3, y, s));
@@ -68,11 +69,11 @@ public class EquipmentPanelRenderer {
         slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
 
         // ======================
-        // WEAPONS (FIXED WIDTH + ALIGNMENT)
+        // WEAPONS (FIXED WIDTH + NO OVERFLOW)
         // ======================
         int wY = y + (s + vGap) * 7 + vGap;
 
-        int weaponPadding = 6;
+        int weaponPadding = 4;
         int weaponWidth = panelWidth - (weaponPadding * 2);
         int wx = x + weaponPadding;
 
@@ -91,18 +92,20 @@ public class EquipmentPanelRenderer {
         int s = 24;
         int vGap = 6;
 
-        int panelWidth = 260;
-        int panelHeight = 300;
+        int panelWidth = 190;
+        int rows = 8;
+        int panelHeight = (rows * s) + (rows * vGap);
 
         // ======================
-        // BACK PANEL (FIXED MISSING UI)
+        // 🧱 BACK PANEL (TARKOV STYLE POLISH)
         // ======================
+
         g.fill(
-                x - 8,
-                y - 8,
-                x + panelWidth + 8,
-                y + panelHeight + 8,
-                0xAA0F0F0F
+                x - 10,
+                y - 10,
+                x + panelWidth + 10,
+                y + panelHeight + 10,
+                0x66000000
         );
 
         g.fill(
@@ -110,15 +113,27 @@ public class EquipmentPanelRenderer {
                 y - 6,
                 x + panelWidth + 6,
                 y + panelHeight + 6,
-                0xFF151515
+                0xFF101010
         );
 
-        // ======================
-        // SILHOUETTE CENTERED
-        // ======================
-        int col3 = x + 150;
+        g.fill(
+                x - 4,
+                y - 4,
+                x + panelWidth + 4,
+                y + panelHeight + 4,
+                0xFF1A1A1A
+        );
 
-        int silX = x + ((col3 + s - x) / 2) - (SIL_W / 2);
+        // inner border highlight
+        g.fill(x - 4, y - 4, x + panelWidth + 4, y - 3, 0xFF2B2B2B);
+        g.fill(x - 4, y - 4, x - 3, y + panelHeight + 4, 0xFF2B2B2B);
+        g.fill(x + panelWidth + 3, y - 4, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
+        g.fill(x - 4, y + panelHeight + 3, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
+
+        // ======================
+        // SILHOUETTE CENTER
+        // ======================
+        int silX = x + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
 
         g.blit(
@@ -143,7 +158,7 @@ public class EquipmentPanelRenderer {
         }
 
         // ======================
-        // RENDER SLOTS
+        // SLOTS
         // ======================
         for (EquipmentSlot slot : slots) {
             slot.render(g);
