@@ -20,16 +20,14 @@ public class EquipmentPanelRenderer {
     private static final int SIL_W = 128;
     private static final int SIL_H = 256;
 
-    // SYSTEMS
     private final List<EquipmentSlot> slots = new ArrayList<>();
+
+    // lookup system
     private final Map<String, EquipmentSlot> slotMap = new HashMap<>();
-    private final Map<Integer, EquipmentSlot> hotbar = new HashMap<>();
 
-    private EquipmentSlot activeWeapon = null;
+    // DRAG SYSTEM
+    private ItemStack carriedItem = ItemStack.EMPTY;
 
-    // ======================
-    // INIT
-    // ======================
     public void init(int left, int top) {
 
         this.left = left;
@@ -37,7 +35,6 @@ public class EquipmentPanelRenderer {
 
         slots.clear();
         slotMap.clear();
-        hotbar.clear();
 
         int x = left;
         int y = top;
@@ -52,67 +49,81 @@ public class EquipmentPanelRenderer {
         int panelWidth = 190;
 
         // ======================
-        // SLOTS (LINKED + TYPED)
+        // SLOTS
         // ======================
-        addSlot("BALACLAVA", EquipmentSlotType.FACE, col1, y, s);
-        addSlot("HEAD", EquipmentSlotType.HEAD, col3, y, s);
+        add("HEAD", EquipmentSlotType.HEAD, col3, y, s);
+        add("BALACLAVA", EquipmentSlotType.FACE, col1, y, s);
 
-        addSlot("EAR", EquipmentSlotType.EAR, col1, y + (s + vGap), s);
-        addSlot("FACE", EquipmentSlotType.EYES, col3, y + (s + vGap), s);
+        add("EAR", EquipmentSlotType.EAR, col1, y + (s + vGap), s);
+        add("FACE", EquipmentSlotType.FACE, col3, y + (s + vGap), s);
 
-        addSlot("RIG", EquipmentSlotType.RIG, col1, y + (s + vGap) * 2, s);
-        addSlot("CHEST", EquipmentSlotType.ARMOR, col3, y + (s + vGap) * 2, s);
+        add("RIG", EquipmentSlotType.RIG, col1, y + (s + vGap) * 2, s);
+        add("CHEST", EquipmentSlotType.ARMOR, col3, y + (s + vGap) * 2, s);
 
-        addSlot("PANTS", EquipmentSlotType.PANTS, col2, y + (s + vGap) * 3, s);
-        addSlot("KNEES", EquipmentSlotType.KNEE, col2, y + (s + vGap) * 4, s);
-        addSlot("BOOTS", EquipmentSlotType.BOOTS, col2, y + (s + vGap) * 5, s);
+        add("PANTS", EquipmentSlotType.PANTS, col2, y + (s + vGap) * 3, s);
+        add("KNEES", EquipmentSlotType.KNEE, col2, y + (s + vGap) * 4, s);
+        add("BOOTS", EquipmentSlotType.BOOTS, col2, y + (s + vGap) * 5, s);
 
-        addSlot("BACKPACK", EquipmentSlotType.BACKPACK, col1, y + (s + vGap) * 6, s);
+        add("BACKPACK", EquipmentSlotType.BACKPACK, col1, y + (s + vGap) * 6, s);
 
-        // ======================
-        // WEAPONS
-        // ======================
         int weaponHeight = s + 6;
         int wY = y + (s + vGap) * 7 + 2;
 
-        int weaponWidth = panelWidth - 8;
-
-        addSlot("PRIMARY", EquipmentSlotType.WEAPON, x + 4, wY, weaponWidth, weaponHeight);
-        addSlot("SECONDARY", EquipmentSlotType.WEAPON, x + 4, wY + weaponHeight + vGap, weaponWidth, weaponHeight);
-
-        // ======================
-        // HOTBAR LINKING
-        // ======================
-        hotbar.put(1, slotMap.get("PRIMARY"));
-        hotbar.put(2, slotMap.get("SECONDARY"));
+        add("PRIMARY", EquipmentSlotType.WEAPON, x + 4, wY, panelWidth - 8, weaponHeight);
+        add("SECONDARY", EquipmentSlotType.WEAPON, x + 4, wY + weaponHeight + vGap, panelWidth - 8, weaponHeight);
     }
 
-    // helper
-    private void addSlot(String id, EquipmentSlotType type, int x, int y, int size) {
-        addSlot(id, type, x, y, size, size);
+    private void add(String id, EquipmentSlotType type, int x, int y, int size) {
+        add(id, type, x, y, size, size);
     }
 
-    private void addSlot(String id, EquipmentSlotType type, int x, int y, int w, int h) {
+    private void add(String id, EquipmentSlotType type, int x, int y, int w, int h) {
         EquipmentSlot slot = new EquipmentSlot(id, type, x, y, w, h);
         slots.add(slot);
         slotMap.put(id, slot);
     }
 
     // ======================
-    // HOTBAR INPUT
+    // DRAG & DROP LOGIC
     // ======================
-    public void handleKey(int key) {
+    public boolean mouseClicked(double mx, double my, int button) {
 
-        int slot = key - 48; // 1-9 keys
+        if (button != 0) return false;
 
-        if (hotbar.containsKey(slot)) {
+        for (EquipmentSlot slot : slots) {
 
-            EquipmentSlot target = hotbar.get(slot);
+            if (slot.isMouseOver(mx, my)) {
 
-            if (target != null) {
-                activeWeapon = target;
+                // PICK UP
+                if (carriedItem.isEmpty() && !slot.item.isEmpty()) {
+                    carriedItem = slot.item;
+                    slot.item = ItemStack.EMPTY;
+                    return true;
+                }
+
+                // DROP / SWAP
+                if (!carriedItem.isEmpty()) {
+
+                    ItemStack temp = slot.item;
+                    slot.item = carriedItem;
+                    carriedItem = temp;
+
+                    return true;
+                }
             }
         }
+
+        return false;
+    }
+
+    public boolean mouseReleased(double mx, double my, int button) {
+
+        if (button == 1 && !carriedItem.isEmpty()) {
+            carriedItem = ItemStack.EMPTY;
+            return true;
+        }
+
+        return false;
     }
 
     // ======================
@@ -137,7 +148,7 @@ public class EquipmentPanelRenderer {
 
         g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
-        // MOUSE
+        // mouse
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
 
@@ -145,18 +156,23 @@ public class EquipmentPanelRenderer {
             slot.hovered = slot.isMouseOver(mx, my);
         }
 
-        // ACTIVE WEAPON HIGHLIGHT
+        // render slots
         for (EquipmentSlot slot : slots) {
-
-            if (slot == activeWeapon) {
-                g.fill(slot.x1 - 2, slot.y1 - 2, slot.x2 + 2, slot.y2 + 2, 0x55FFD700);
-            }
-
             slot.render(g);
         }
 
         for (EquipmentSlot slot : slots) {
             slot.renderLabel(g, mc);
+        }
+
+        // render dragged item
+        if (!carriedItem.isEmpty()) {
+
+            int cx = (int) mx;
+            int cy = (int) my;
+
+            g.renderItem(carriedItem, cx + 8, cy + 8);
+            g.renderItemDecorations(mc.font, carriedItem, cx + 8, cy + 8);
         }
     }
 }
