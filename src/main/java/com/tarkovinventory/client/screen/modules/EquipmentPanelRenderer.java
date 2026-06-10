@@ -1,6 +1,5 @@
 package com.tarkovinventory.client.screen.modules;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -43,7 +42,7 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // MAIN RENDER
+    // MAIN RENDER (ONLY METHOD YOU CALL)
     // ======================
     public void render(GuiGraphics g) {
 
@@ -61,7 +60,7 @@ public class EquipmentPanelRenderer {
         int panelWidth = (s * 3) + (hGap * 2);
 
         // ======================
-        // 1. SILHOUETTE (BACKGROUND LAYER)
+        // BACKGROUND SILHOUETTE
         // ======================
         g.blit(
                 SILHOUETTE,
