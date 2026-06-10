@@ -26,9 +26,6 @@ public class EquipmentPanelRenderer {
 
     private ItemStack carriedItem = ItemStack.EMPTY;
 
-    // ======================
-    // INIT
-    // ======================
     public void init(int left, int top) {
 
         this.left = left;
@@ -83,9 +80,6 @@ public class EquipmentPanelRenderer {
         slotMap.put(id, slot);
     }
 
-    // ======================
-    // TEST ITEMS
-    // ======================
     private void giveTestItems() {
 
         if (slotMap.get("HEAD") != null)
@@ -102,39 +96,39 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // CLICK (FULL FIXED)
+    // CLICK
     // ======================
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
 
         if (button != 0) return false;
 
-        // 🔥 FIX: ALWAYS USE GUI-SCALED COORDS
-        double mx = mouseX * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
-        double my = mouseY * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
+        double mx = mouseX;
+        double my = mouseY;
 
         for (EquipmentSlot slot : slots) {
 
             if (slot.isMouseOver(mx, my)) {
 
-                // PICK UP
                 if (carriedItem.isEmpty() && !slot.item.isEmpty()) {
                     carriedItem = slot.item;
                     slot.item = ItemStack.EMPTY;
                     return true;
                 }
 
-                // DROP / SWAP
                 if (!carriedItem.isEmpty()) {
-
                     ItemStack temp = slot.item;
                     slot.item = carriedItem;
                     carriedItem = temp;
-
                     return true;
                 }
             }
         }
 
+        return false;
+    }
+
+    // 🔥 FIXED BUILD ERROR (ADDED THIS)
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
         return false;
     }
 
@@ -158,14 +152,6 @@ public class EquipmentPanelRenderer {
 
         g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
-        // hover mouse (same system as click)
-        double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
-        double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
-
-        for (EquipmentSlot slot : slots) {
-            slot.hovered = slot.isMouseOver(mx, my);
-        }
-
         for (EquipmentSlot slot : slots) {
             slot.render(g);
         }
@@ -175,9 +161,8 @@ public class EquipmentPanelRenderer {
         }
 
         if (!carriedItem.isEmpty()) {
-
-            int cx = (int) mx;
-            int cy = (int) my;
+            int cx = (int) (mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth());
+            int cy = (int) (mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight());
 
             g.renderItem(carriedItem, cx + 8, cy + 8);
             g.renderItemDecorations(mc.font, carriedItem, cx + 8, cy + 8);
