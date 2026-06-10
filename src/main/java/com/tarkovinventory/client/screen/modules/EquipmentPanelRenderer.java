@@ -49,9 +49,6 @@ public class EquipmentPanelRenderer {
 
         int panelWidth = 190;
 
-        // ======================
-        // SLOTS
-        // ======================
         add("HEAD", EquipmentSlotType.HEAD, col3, y, s);
         add("BALACLAVA", EquipmentSlotType.FACE, col1, y, s);
 
@@ -73,9 +70,6 @@ public class EquipmentPanelRenderer {
         add("PRIMARY", EquipmentSlotType.WEAPON, x + 4, wY, panelWidth - 8, weaponHeight);
         add("SECONDARY", EquipmentSlotType.WEAPON, x + 4, wY + weaponHeight + vGap, panelWidth - 8, weaponHeight);
 
-        // ======================
-        // TEST ITEMS
-        // ======================
         giveTestItems();
     }
 
@@ -108,15 +102,15 @@ public class EquipmentPanelRenderer {
     }
 
     // ======================
-    // CLICK (FIXED)
+    // CLICK (FULL FIXED)
     // ======================
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
 
         if (button != 0) return false;
 
-        // IMPORTANT FIX: DO NOT SCALE MOUSE
-        double mx = mouseX;
-        double my = mouseY;
+        // 🔥 FIX: ALWAYS USE GUI-SCALED COORDS
+        double mx = mouseX * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
+        double my = mouseY * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
 
         for (EquipmentSlot slot : slots) {
 
@@ -155,18 +149,16 @@ public class EquipmentPanelRenderer {
         int panelWidth = 190;
         int panelHeight = 16 * 18;
 
-        // BACK PANEL
         g.fill(x - 10, y - 10, x + panelWidth + 10, y + panelHeight + 10, 0x66000000);
         g.fill(x - 6, y - 6, x + panelWidth + 6, y + panelHeight + 6, 0xFF101010);
         g.fill(x - 4, y - 4, x + panelWidth + 4, y + panelHeight + 4, 0xFF1A1A1A);
 
-        // SILHOUETTE
         int silX = x + (panelWidth / 2) - (SIL_W / 2);
         int silY = y + 10;
 
         g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
-        // FIXED MOUSE (ONLY FOR RENDER HOVER)
+        // hover mouse (same system as click)
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
 
@@ -182,7 +174,6 @@ public class EquipmentPanelRenderer {
             slot.renderLabel(g, mc);
         }
 
-        // DRAGGED ITEM
         if (!carriedItem.isEmpty()) {
 
             int cx = (int) mx;
