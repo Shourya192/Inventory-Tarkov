@@ -13,9 +13,6 @@ public class EquipmentScreen extends Screen {
         super(Component.literal("Equipment"));
     }
 
-    // ======================
-    // INIT UI
-    // ======================
     @Override
     protected void init() {
         super.init();
@@ -26,9 +23,6 @@ public class EquipmentScreen extends Screen {
         panel.init(left, top);
     }
 
-    // ======================
-    // RENDER
-    // ======================
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 
@@ -40,35 +34,18 @@ public class EquipmentScreen extends Screen {
     }
 
     // ======================
-    // MOUSE CLICK (CRITICAL)
+    // INPUT FORWARDING (CLEAN)
     // ======================
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-
-        // forward to panel
-        if (panel.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button);
+        return panel.mouseClicked(mouseX, mouseY, button);
     }
 
-    // ======================
-    // MOUSE RELEASE (optional but good for future)
-    // ======================
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-
-        if (panel.mouseReleased(mouseX, mouseY, button)) {
-            return true;
-        }
-
-        return super.mouseReleased(mouseX, mouseY, button);
+        return panel.mouseReleased(mouseX, mouseY, button);
     }
 
-    // ======================
-    // ESC CLOSE BEHAVIOR
-    // ======================
     @Override
     public boolean isPauseScreen() {
         return false;
