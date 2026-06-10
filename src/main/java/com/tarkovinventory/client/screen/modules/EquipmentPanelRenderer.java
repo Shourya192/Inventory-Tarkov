@@ -22,6 +22,9 @@ public class EquipmentPanelRenderer {
 
     private final List<EquipmentSlot> slots = new ArrayList<>();
 
+    // ======================
+    // MAIN INIT
+    // ======================
     public void init(int left, int top) {
         this.left = left;
         this.top = top;
@@ -38,7 +41,11 @@ public class EquipmentPanelRenderer {
         int col2 = x + 70;
         int col3 = x + 150;
 
-        // LEFT + RIGHT
+        int panelWidth = 260;
+
+        // ======================
+        // LEFT + RIGHT SLOTS
+        // ======================
         slots.add(new EquipmentSlot("BALACLAVA", col1, y, s));
         slots.add(new EquipmentSlot("HEAD", col3, y, s));
 
@@ -48,43 +55,70 @@ public class EquipmentPanelRenderer {
         slots.add(new EquipmentSlot("RIG", col1, y + (s + vGap) * 2, s));
         slots.add(new EquipmentSlot("CHEST", col3, y + (s + vGap) * 2, s));
 
+        // ======================
         // CENTER COLUMN
+        // ======================
         slots.add(new EquipmentSlot("PANTS", col2, y + (s + vGap) * 3, s));
         slots.add(new EquipmentSlot("KNEES", col2, y + (s + vGap) * 4, s));
         slots.add(new EquipmentSlot("BOOTS", col2, y + (s + vGap) * 5, s));
 
+        // ======================
         // BACKPACK
+        // ======================
         slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
 
         // ======================
-        // WEAPONS FIXED (IMPORTANT)
+        // WEAPONS (FIXED WIDTH + ALIGNMENT)
         // ======================
         int wY = y + (s + vGap) * 7 + vGap;
 
         int weaponPadding = 6;
-        int weaponWidth = (x + 260) - x - (weaponPadding * 2); // safe panel width
+        int weaponWidth = panelWidth - (weaponPadding * 2);
         int wx = x + weaponPadding;
 
         slots.add(new EquipmentSlot("PRIMARY", wx, wY, weaponWidth, s));
         slots.add(new EquipmentSlot("SECONDARY", wx, wY + s + vGap, weaponWidth, s));
     }
 
+    // ======================
+    // RENDER
+    // ======================
     public void render(GuiGraphics g) {
 
         int x = left;
         int y = top;
 
         int s = 24;
+        int vGap = 6;
 
-        int col1 = x;
+        int panelWidth = 260;
+        int panelHeight = 300;
+
+        // ======================
+        // BACK PANEL (FIXED MISSING UI)
+        // ======================
+        g.fill(
+                x - 8,
+                y - 8,
+                x + panelWidth + 8,
+                y + panelHeight + 8,
+                0xAA0F0F0F
+        );
+
+        g.fill(
+                x - 6,
+                y - 6,
+                x + panelWidth + 6,
+                y + panelHeight + 6,
+                0xFF151515
+        );
+
+        // ======================
+        // SILHOUETTE CENTERED
+        // ======================
         int col3 = x + 150;
 
-        int panelWidth = (col3 + s) - col1;
-
-        // ======================
-        // SILHOUETTE CENTER FIXED
-        // ======================
-        int silX = col1 + (panelWidth / 2) - (SIL_W / 2);
+        int silX = x + ((col3 + s - x) / 2) - (SIL_W / 2);
         int silY = y + 10;
 
         g.blit(
