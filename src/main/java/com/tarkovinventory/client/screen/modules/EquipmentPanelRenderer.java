@@ -23,7 +23,7 @@ public class EquipmentPanelRenderer {
     private final List<EquipmentSlot> slots = new ArrayList<>();
 
     // ======================
-    // INIT (LAYOUT)
+    // INIT
     // ======================
     public void init(int left, int top) {
 
@@ -45,7 +45,7 @@ public class EquipmentPanelRenderer {
         int panelWidth = 190;
 
         // ======================
-        // LEFT / RIGHT SLOTS
+        // NORMAL SLOTS
         // ======================
         slots.add(new EquipmentSlot("BALACLAVA", col1, y, s));
         slots.add(new EquipmentSlot("HEAD", col3, y, s));
@@ -56,20 +56,14 @@ public class EquipmentPanelRenderer {
         slots.add(new EquipmentSlot("RIG", col1, y + (s + vGap) * 2, s));
         slots.add(new EquipmentSlot("CHEST", col3, y + (s + vGap) * 2, s));
 
-        // ======================
-        // CENTER COLUMN
-        // ======================
         slots.add(new EquipmentSlot("PANTS", col2, y + (s + vGap) * 3, s));
         slots.add(new EquipmentSlot("KNEES", col2, y + (s + vGap) * 4, s));
         slots.add(new EquipmentSlot("BOOTS", col2, y + (s + vGap) * 5, s));
 
-        // ======================
-        // BACKPACK
-        // ======================
         slots.add(new EquipmentSlot("BACKPACK", col1, y + (s + vGap) * 6, s));
 
         // ======================
-        // WEAPONS (FIXED WIDTH + NO OVERFLOW)
+        // WEAPON SLOTS (FIXED RECTANGLES)
         // ======================
         int wY = y + (s + vGap) * 7 + vGap;
 
@@ -77,8 +71,10 @@ public class EquipmentPanelRenderer {
         int weaponWidth = panelWidth - (weaponPadding * 2);
         int wx = x + weaponPadding;
 
-        slots.add(new EquipmentSlot("PRIMARY", wx, wY, weaponWidth, s));
-        slots.add(new EquipmentSlot("SECONDARY", wx, wY + s + vGap, weaponWidth, s));
+        int weaponHeight = s + 6; // taller = real weapon slot feel
+
+        slots.add(new EquipmentSlot("PRIMARY", wx, wY, weaponWidth, weaponHeight));
+        slots.add(new EquipmentSlot("SECONDARY", wx, wY + weaponHeight + vGap, weaponWidth, weaponHeight));
     }
 
     // ======================
@@ -93,11 +89,19 @@ public class EquipmentPanelRenderer {
         int vGap = 6;
 
         int panelWidth = 190;
-        int rows = 8;
-        int panelHeight = (rows * s) + (rows * vGap);
 
         // ======================
-        // 🧱 BACK PANEL (TARKOV STYLE POLISH)
+        // DYNAMIC PANEL HEIGHT (FIXED)
+        // ======================
+        int weaponHeight = s + 6;
+
+        int normalSlotsHeight = 7 * (s + vGap);
+        int weaponBlockHeight = (weaponHeight * 2) + vGap;
+
+        int panelHeight = normalSlotsHeight + weaponBlockHeight;
+
+        // ======================
+        // BACK PANEL (FULL COVER FIXED)
         // ======================
 
         g.fill(
@@ -124,7 +128,7 @@ public class EquipmentPanelRenderer {
                 0xFF1A1A1A
         );
 
-        // inner border highlight
+        // subtle border frame
         g.fill(x - 4, y - 4, x + panelWidth + 4, y - 3, 0xFF2B2B2B);
         g.fill(x - 4, y - 4, x - 3, y + panelHeight + 4, 0xFF2B2B2B);
         g.fill(x + panelWidth + 3, y - 4, x + panelWidth + 4, y + panelHeight + 4, 0xFF2B2B2B);
@@ -148,7 +152,7 @@ public class EquipmentPanelRenderer {
         );
 
         // ======================
-        // MOUSE HOVER
+        // HOVER DETECTION
         // ======================
         double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
@@ -158,7 +162,7 @@ public class EquipmentPanelRenderer {
         }
 
         // ======================
-        // SLOTS
+        // RENDER SLOTS
         // ======================
         for (EquipmentSlot slot : slots) {
             slot.render(g);
