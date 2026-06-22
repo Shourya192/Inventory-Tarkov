@@ -1,7 +1,5 @@
 package com.tarkovinventory.network;
 
-import com.tarkovinventory.client.screen.TarkovInventoryScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -17,10 +15,10 @@ public class S2COpenTarkovPacket {
 
     public static void handle(S2COpenTarkovPacket msg, Supplier<NetworkEvent.Context> ctx) {
 
-        ctx.get().enqueueWork(() -> {
-            Minecraft.getInstance().setScreen(new TarkovInventoryScreen());
-        });
-
+        // Opening is now performed server-side with NetworkHooks.openScreen so
+        // the client receives a real AbstractContainerMenu. This legacy packet
+        // remains registered for protocol compatibility and intentionally does
+        // not create a standalone client-only screen.
         ctx.get().setPacketHandled(true);
     }
 }
