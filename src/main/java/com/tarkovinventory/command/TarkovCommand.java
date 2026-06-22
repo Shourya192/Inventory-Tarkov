@@ -4,7 +4,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.tarkovinventory.capability.IPlayerEquipment;
 import com.tarkovinventory.capability.ModCapabilities;
-import com.tarkovinventory.compat.BackpackCompat;
 import com.tarkovinventory.compat.CuriosCompat;
 import com.tarkovinventory.container.TarkovInventoryMenu;
 import com.tarkovinventory.inventory.BackpackSizes;
@@ -40,6 +39,24 @@ public final class TarkovCommand {
         //
         // Registered under both "ti" and "tarkovinventory" explicitly (no redirect,
         // which is unreliable in Forge 1.20.1 and can break the whole tree).
+
+        dispatcher.register(
+            Commands.literal("setsize")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("backpack")
+                    .then(Commands.argument("columns", IntegerArgumentType.integer(1, GridInventory.MAX_COLS))
+                        .then(Commands.argument("rows", IntegerArgumentType.integer(1, GridInventory.MAX_ROWS))
+                            .executes(ctx -> setBackpackSize(ctx.getSource(),
+                                IntegerArgumentType.getInteger(ctx, "columns"),
+                                IntegerArgumentType.getInteger(ctx, "rows"))))))
+                .then(Commands.literal("rig")
+                    .then(Commands.argument("columns", IntegerArgumentType.integer(1, GridInventory.MAX_COLS))
+                        .then(Commands.argument("rows", IntegerArgumentType.integer(1, GridInventory.MAX_ROWS))
+                            .executes(ctx -> setRigSize(ctx.getSource(),
+                                IntegerArgumentType.getInteger(ctx, "columns"),
+                                IntegerArgumentType.getInteger(ctx, "rows"))))))
+        );
+
         for (String alias : new String[]{"ti", "tarkovinventory"}) {
             dispatcher.register(
                 Commands.literal(alias)
@@ -228,6 +245,7 @@ public final class TarkovCommand {
             }
 
             BackpackSizes.register(itemId, cols, rows);
+            ModCapabilities.get(player).ifPresent(cap -> cap.getGridInventory().setActiveDimensions(cols, rows));
 
             player.displayClientMessage(
                 Component.literal("§aRegistered §f\"" + itemId + "\"§a → §f"
