@@ -10,20 +10,29 @@ public class InventoryGridRenderer {
     private int top;
 
     private int hoverSlot = -1;
+    private int activeCols = 6;
+    private int activeRows = 4;
+
 
     public void init(int left, int top) {
+        init(left, top, activeCols, activeRows);
+    }
+
+    public void init(int left, int top, int activeCols, int activeRows) {
         this.left = left;
         this.top = top;
+        this.activeCols = Math.max(1, activeCols);
+        this.activeRows = Math.max(1, activeRows);
     }
 
     public void updateHover(double mouseX, double mouseY) {
-        hoverSlot = -1;
+        hoverSlot = getSlotAt(mouseX, mouseY);
     }
 
     public void renderWithBackground(GuiGraphics g) {
 
-        int width = 8 * CELL;
-        int height = 16 * CELL;
+        int width = Math.max(8, activeCols) * CELL;
+        int height = (4 + activeRows + 6) * CELL;
 
         g.fill(
                 left - 16,
@@ -95,32 +104,44 @@ public class InventoryGridRenderer {
 
         int backpackY = rigY + (3 * CELL) + 40;
 
-        for (int row = 0; row < 4; row++) {
-            for (int col = 0; col < 6; col++) {
+        for (int row = 0; row < activeRows; row++) {
+            for (int col = 0; col < activeCols; col++) {
 
                 int x = left + col * CELL;
                 int y = backpackY + row * CELL;
 
+                int slot = row * 12 + col;
                 g.fill(
                         x,
                         y,
                         x + CELL - 1,
                         y + CELL - 1,
-                        0xFF2B2B2B
+                        hoverSlot == slot ? 0xFF4A4A4A : 0xFF2B2B2B
                 );
             }
         }
     }
 
     public int getSlotAt(double mouseX, double mouseY) {
+        int backpackY = getBackpackY();
+        int col = ((int) mouseX - left) / CELL;
+        int row = ((int) mouseY - backpackY) / CELL;
+        if (mouseX >= left && mouseY >= backpackY
+                && col >= 0 && col < activeCols && row >= 0 && row < activeRows) {
+            return row * 12 + col;
+        }
         return -1;
     }
 
+    public int getPocketsY() { return top; }
+    public int getPocketX(int i) { return left + i * CELL; }
+    public int getBackpackY() { return top + 40 + (3 * CELL) + 40; }
+
     public int getWidth() {
-        return 8 * CELL;
+        return Math.max(8, activeCols) * CELL;
     }
 
     public int getHeight() {
-        return 16 * CELL;
+        return (4 + activeRows + 6) * CELL;
     }
 }
