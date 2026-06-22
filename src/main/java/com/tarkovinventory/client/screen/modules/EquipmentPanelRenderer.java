@@ -67,7 +67,6 @@ public class EquipmentPanelRenderer {
         add("PRIMARY", EquipmentSlotType.WEAPON, x + 4, wY, panelWidth - 8, weaponHeight);
         add("SECONDARY", EquipmentSlotType.WEAPON, x + 4, wY + weaponHeight + vGap, panelWidth - 8, weaponHeight);
 
-        giveTestItems();
     }
 
     private void add(String id, EquipmentSlotType type, int x, int y, int size) {
@@ -98,6 +97,14 @@ public class EquipmentPanelRenderer {
     // ======================
     // CLICK
     // ======================
+    public void updateHover(double mouseX, double mouseY) {
+        for (EquipmentSlot slot : slots) slot.hovered = slot.isMouseOver(mouseX, mouseY);
+    }
+
+    public EquipmentSlot getSlot(String id) {
+        return slotMap.get(id);
+    }
+
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
 
         if (button != 0) return false;
@@ -136,6 +143,10 @@ public class EquipmentPanelRenderer {
     // RENDER
     // ======================
     public void render(GuiGraphics g) {
+        render(g, true);
+    }
+
+    public void render(GuiGraphics g, boolean renderLocalItems) {
 
         int x = left;
         int y = top;
@@ -153,14 +164,14 @@ public class EquipmentPanelRenderer {
         g.blit(SILHOUETTE, silX, silY, 0, 0, SIL_W, SIL_H, SIL_W, SIL_H);
 
         for (EquipmentSlot slot : slots) {
-            slot.render(g);
+            slot.render(g, renderLocalItems);
         }
 
         for (EquipmentSlot slot : slots) {
             slot.renderLabel(g, mc);
         }
 
-        if (!carriedItem.isEmpty()) {
+        if (renderLocalItems && !carriedItem.isEmpty()) {
             int cx = (int) (mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth());
             int cy = (int) (mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight());
 
