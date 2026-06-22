@@ -30,6 +30,10 @@ public class EquipmentSlot {
     }
 
     public void render(GuiGraphics g) {
+        render(g, true);
+    }
+
+    public void render(GuiGraphics g, boolean renderLocalItem) {
 
         int bg = hovered ? 0xFF242424 : 0xFF161616;
 
@@ -41,7 +45,7 @@ public class EquipmentSlot {
         g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF101010);
 
         // item render
-        if (!item.isEmpty()) {
+        if (renderLocalItem && !item.isEmpty()) {
             Minecraft mc = Minecraft.getInstance();
             g.renderItem(item, x1 + 4, y1 + 4);
             g.renderItemDecorations(mc.font, item, x1 + 4, y1 + 4);
